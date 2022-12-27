@@ -7,7 +7,7 @@ var long;
 total_dist = 0.0;
 var position = 0.0;
 var i = 0;
-var j = 0;
+//test of git push
 
 function start(){
     
