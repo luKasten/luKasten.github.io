@@ -1,3 +1,5 @@
+
+
 var last_long;
 var last_lat;
 var lat;
@@ -9,7 +11,7 @@ var i = 0;
 var timestamp;
 var last_timestamp;
 var velocity;
-var total_dist;
+var total_dist = 0;
 var dist;
 
 
@@ -17,12 +19,13 @@ var dist;
 //test of git push
 
 function start(){
-    total_dist = 0.0;
+    
     const success = (position) => {
         console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
         //total_dist = total_dist_temp;
         last_lat = lat;
         last_long = long;
+        
         lat = position.coords.latitude;
         long = position.coords.longitude;
         var timestamp = position.timestamp;
@@ -34,10 +37,11 @@ function start(){
         console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
         console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
         console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
-        temp = Number(Number(total_dist) + Number(dist));
-        console.log( "Temp: "+ (total_dist + dist) +",Type: "+ typeof((total_dist + dist)));
-        total_dist += dist;
-        console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
+        
+        total_dist += dist
+
+        console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
+
 
         if (isNaN(velocity)){
             document.getElementById("velocity").innerHTML = "--";
@@ -91,3 +95,4 @@ function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement fun
     var d = R * c;
     return d * 1000; // meters
 }
+
