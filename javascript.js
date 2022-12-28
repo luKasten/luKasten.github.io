@@ -9,16 +9,18 @@ var i = 0;
 var timestamp;
 var last_timestamp;
 var velocity;
+var total_dist;
+var dist;
+
 
 
 //test of git push
 
 function start(){
-
-    
-    
+    total_dist = 0.0;
     const success = (position) => {
-        
+        console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
+        //total_dist = total_dist_temp;
         last_lat = lat;
         last_long = long;
         lat = position.coords.latitude;
@@ -30,9 +32,12 @@ function start(){
         dist = measure(lat,long,last_lat,last_long);
         velocity = Math.round(dist / (delta_t/(60*60)));
         console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
+        console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
         console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
-        total_dist = total_dist + dist;
-        console.log("Total Distance: " + dist +", Typeof Total Distance: " + typeof(dist));
+        temp = Number(Number(total_dist) + Number(dist));
+        console.log( "Temp: "+ (total_dist + dist) +",Type: "+ typeof((total_dist + dist)));
+        total_dist += dist;
+        console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
 
         if (isNaN(velocity)){
             document.getElementById("velocity").innerHTML = "--";
