@@ -28,7 +28,7 @@ function start(){
         last_timestamp = position.timestamp;
         console.log(position);
         dist = measure(lat,long,last_lat,last_long);
-        velocity = dist / (delta_t/(1000*60*60));
+        velocity = dist / (delta_t/(60*60));
         console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
         console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
         total_dist = total_dist + dist;
@@ -52,6 +52,12 @@ function start(){
             document.getElementById("delta-t").innerHTML = delta_t.toString();
         }
 
+        if (isNaN(dist)){
+            document.getElementById("dist").innerHTML = "--";
+        } else {
+            document.getElementById("dist").innerHTML = dist.toString();
+        }
+
 
         
         
@@ -67,22 +73,7 @@ function start(){
 
 }
 
-function getLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(showPosition);
 
-    } else {
-        x = "Geolocation is not supported by this browser.";
-    }
-    
-}
-
-function showPosition(position) {
-    console.log("Test" + position.coords.latitude);
-    console.log("Test" + position.coords.longitude);
-    lat =  position.coords.latitude;
-    long = position.coords.longitude;
-}
 
 function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement function https://en.wikipedia.org/wiki/Haversine_formula
     var R = 6378.137; // Radius of earth in KM
