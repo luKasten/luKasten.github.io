@@ -28,7 +28,7 @@ function start(){
         last_timestamp = position.timestamp;
         console.log(position);
         dist = measure(lat,long,last_lat,last_long);
-        velocity = dist / (delta_t/(60*60));
+        velocity = Math.round(dist / (delta_t/(60*60)));
         console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
         console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
         total_dist = total_dist + dist;
