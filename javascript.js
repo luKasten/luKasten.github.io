@@ -90,7 +90,9 @@ function start(){
     navigator.geolocation.watchPosition(success, error);
 
     if (flag == true) {
+
         setDatapoint();
+
     } else {
         flag = true;
         var btn_start = document.getElementById("btn-start");
@@ -109,6 +111,9 @@ function reset(){
     total_dist = 0;
     counter = 0;
     flag = false;
+    var btn_start = document.getElementById("btn-start");
+    btn_start.textContent = "Start Journey";
+    
 
 }
 

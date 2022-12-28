@@ -10,7 +10,7 @@
 
 .indicator-board{
     border: 5px solid black;
-    border-radius: 100px;
+    border-radius: 10px;
     width: 80%;
     min-width: 250px;
     height: 300px;
@@ -37,17 +37,29 @@
 }
 
 .btn-start{
-    width: 40%;
+    width: 37%;
     height: 50px;
     margin: 10px;
 }
 
 .btn-end{
-    width: 40%;
+    width: 37%;
     height: 50px;
     margin: 10px;
 }
 .table{
     margin: 10px;
     width: 90%;
+}
+.boxes{
+    height: 60px;
+    width: 80%;
+    background-color: rgba(128, 128, 128, 0.396);
+    border: 1px solid black;
+    border-radius: 10px;
+    width: 80%;
+    min-width: 250px;
+    margin: auto;
+    margin-bottom: 10px;
+    padding-top: 15px;
 }
