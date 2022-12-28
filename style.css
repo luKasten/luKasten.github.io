@@ -1,6 +1,6 @@
 *{
     margin: 0px;
-    background-color: aqua;
+    
 }
 
 .header{
@@ -10,21 +10,25 @@
 
 .indicator-board{
     border: 5px solid black;
-    border-radius: 150px;
-    width: 300px;
+    border-radius: 100px;
+    width: 80%;
+    min-width: 250px;
     height: 300px;
     margin: auto;
+    margin-bottom: 30px;
 }
 
 .velocity{
     font-size: 150px;
     text-align: center;
-    margin-top: 50px;
+    margin-top: 10px;
+    
 }
 
 .unit{
     font-size: 30px;
     text-align: center;
+    
 }
 
 .footer{
@@ -33,16 +37,16 @@
 }
 
 .btn-start{
-    width: 150px;
+    width: 40%;
     height: 50px;
     margin: 10px;
 }
 
 .btn-end{
-    width: 150px;
+    width: 40%;
     height: 50px;
     margin: 10px;
 }
 .table{
-    text-align: center;
+    margin: 25px;
 }
