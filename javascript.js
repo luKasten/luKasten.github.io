@@ -10,6 +10,7 @@ var dist;
 var sum_velocity = 0;
 var all_velocities = [];
 var mean_velocity = 0;
+var total_dist = 0;
 var counter = 0;
 
 
@@ -21,50 +22,48 @@ function start(){
     counter = 1;
     
 
-    const success = (position) => {
-        console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
-        //total_dist = total_dist_temp;
+    const success = (position) => {     
+        //Set the last position   
         last_lat = lat;
         last_long = long;
         
+        //Set the new position with timestamp
         lat = position.coords.latitude;
         long = position.coords.longitude;
         var timestamp = position.timestamp;
+
+        //Calculate the time difference between two steps
         delta_t = timestamp - last_timestamp;
         last_timestamp = position.timestamp;
-        console.log(position);
-        dist = measure(lat,long,last_lat,last_long);
-        velocity = Math.round(dist / (delta_t/(60*60)))
 
+        //Calculate distance between two steps
+        dist = measure(lat,long,last_lat,last_long);
+
+        //Calculate velocity between two steps
+        velocity = Math.round(dist / (delta_t/(60*60)));
+
+        //Add variables to Dataarrays
         all_velocities.push(velocity);
         all_dist.push(dist);
-        //console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
-        //console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
-        //console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
-        //console.log("sum_velocity: " + sum_velocity +", Typeof sum_Velocity: " + typeof(sum_velocity));
-        //console.log("Counter: " + counter +", Typeof counter: " + typeof(counter));
-
-        var total_dist = sumArray(all_dist);
-
-        mean_velocity = meanArray(all_velocities);
-
-        console.log(mean_velocity);
         
+        //Calculate Total-Distance and Mean-Velocity
+        total_dist = Math.round(sumArray(all_dist));
+        mean_velocity = Math.round(meanArray(all_velocities));
 
-        //console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
-        //console.log("Mean velo: " + mean_velocity +", Typeof Mean Velocity: " + typeof(mean_velocity));
+        console.log(total_dist);
+        console.log(mean_velocity);//test
 
-
+        //Check if Values are NaNs and display it
         if (isNaN(velocity)){
             document.getElementById("velocity").innerHTML = "--";
         } else {
-            document.getElementById("velocity").innerHTML = velocity.toString();
+            document.getElementById("velocity").innerHTML = Math.round(velocity).toString();
         };
 
         if (isNaN(total_dist)){
             document.getElementById("total-dist").innerHTML = "--";
         } else {
-            document.getElementById("total-dist").innerHTML = total_dist.toString();
+            document.getElementById("total-dist").innerHTML = Math.round(total_dist).toString();
         };
 
         if (isNaN(delta_t)){
@@ -82,10 +81,8 @@ function start(){
         if (isNaN(mean_velocity)){
             document.getElementById("mean-velocity").innerHTML = "--";
         } else {
-            document.getElementById("mean-velocity").innerHTML = mean_velocity.toString();
+            document.getElementById("mean-velocity").innerHTML = Math.round(mean_velocity).toString();
         };
-
-        counter += 1
     }
 
     const error = (position) => {
@@ -100,15 +97,16 @@ function start(){
 
 function meanArray(array){
     var sum = 0;
+    amount_NaN = 0;
     for(var i = 0; i<array.length; i++){
         if (isNaN(array[i])) {
-            
+            amount_NaN += 1;
         } else {
             sum += array[i]
         }
         
     }
-    return sum/array.length;
+    return sum/(array.length-amount_NaN);
 }
 
 function sumArray(array){
