@@ -13,6 +13,9 @@ var last_timestamp;
 var velocity;
 var total_dist = 0;
 var dist;
+var sum_velocity = 0;
+var mean_velocity = 0;
+var counter = 0;
 
 
 
@@ -20,6 +23,9 @@ var dist;
 
 function start(){
     
+    counter = 1;
+    
+
     const success = (position) => {
         console.log("Total Distance: " + total_dist +", Typeof Total Distance: " + typeof(total_dist));
         //total_dist = total_dist_temp;
@@ -33,45 +39,58 @@ function start(){
         last_timestamp = position.timestamp;
         console.log(position);
         dist = measure(lat,long,last_lat,last_long);
-        velocity = Math.round(dist / (delta_t/(60*60)));
+        velocity = Math.round(dist / (delta_t/(60*60)))
+        
         console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
         console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
         console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
-        
+        console.log("sum_velocity: " + sum_velocity +", Typeof sum_Velocity: " + typeof(sum_velocity));
+        console.log("Counter: " + counter +", Typeof counter: " + typeof(counter));
+
         total_dist += dist
+        
+        sum_velocity += velocity
+
+        mean_velocity = (sum_velocity / counter)
+        
 
         console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
+        console.log("Mean velo: " + mean_velocity +", Typeof Mean Velocity: " + typeof(mean_velocity));
 
 
         if (isNaN(velocity)){
             document.getElementById("velocity").innerHTML = "--";
         } else {
             document.getElementById("velocity").innerHTML = velocity.toString();
-        }
+        };
 
         if (isNaN(total_dist)){
             document.getElementById("total-dist").innerHTML = "--";
         } else {
             document.getElementById("total-dist").innerHTML = total_dist.toString();
-        }
+        };
 
         if (isNaN(delta_t)){
             document.getElementById("delta-t").innerHTML = "--";
         } else {
             document.getElementById("delta-t").innerHTML = delta_t.toString();
-        }
+        };
 
         if (isNaN(dist)){
             document.getElementById("dist").innerHTML = "--";
         } else {
             document.getElementById("dist").innerHTML = dist.toString();
-        }
+        };
+        
+        if (isNaN(mean_velocity)){
+            document.getElementById("mean-velocity").innerHTML = "--";
+        } else {
+            document.getElementById("mean-velocity").innerHTML = mean_velocity.toString();
+        };
 
-
-        
-        
-        
+        counter += 1
     }
+
     const error = (position) => {
         console.log("Error, not connected to GPS");
     }
