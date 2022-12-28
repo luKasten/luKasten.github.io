@@ -87,7 +87,7 @@ function start(){
         console.log("Error, not connected to GPS");
     }
 
-    navigator.geolocation.watchPosition(success, error);
+    
 
     if (flag == true) {
 
@@ -97,6 +97,7 @@ function start(){
         flag = true;
         var btn_start = document.getElementById("btn-start");
         btn_start.textContent = "Set Datapoint";
+        navigator.geolocation.watchPosition(success, error);
     }
 
     
