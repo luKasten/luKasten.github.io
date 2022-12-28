@@ -29,10 +29,10 @@
             </div>
             
             <div class="scores col">
-                <button class="btn-start" onclick="start()">Start Journey</button>
-                <button class="btn-end">End Journey</button>
+                <button class="btn-start" id="btn-start" onclick="start()">Start Journey</button>
+                <button class="btn-end" onclick="reset()">End Journey</button>
             
-                <table class="table">
+                <table class="table" id="table">
                     <thead>
                     <tr>
                         <th scope="col">#</th>
@@ -42,18 +42,6 @@
                     </tr>
                     </thead>
                     <tbody>
-                    <tr>
-                        <th scope="row">1</th>
-                        <td>0.056</td><td>56 km/h</td><td>2 km</td></tr>
-                    </tr>
-                    <tr>
-                        <th scope="row">2</th>
-                        <td>0.058</td><td>60 km/h</td><td>4 km</td></tr>
-                    </tr>
-                    <tr>
-                        <th scope="row">3</th>
-                        <td>0.096</td><td>40 km/h</td><td>12 km</td></tr>
-                    </tr>
                     </tbody>
                 </table>
             </div>

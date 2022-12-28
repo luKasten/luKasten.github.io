@@ -12,15 +12,13 @@ var all_velocities = [];
 var mean_velocity = 0;
 var total_dist = 0;
 var counter = 0;
+var flag = false;
 
 
 
 //test of git push
 
 function start(){
-    
-    counter = 1;
-    
 
     const success = (position) => {     
         //Set the last position   
@@ -91,8 +89,45 @@ function start(){
 
     navigator.geolocation.watchPosition(success, error);
 
+    if (flag == true) {
+        setDatapoint();
+    } else {
+        flag = true;
+        var btn_start = document.getElementById("btn-start");
+        btn_start.textContent = "Set Datapoint";
+    }
+
     
 
+}
+function reset(){
+    flag = false;
+    all_dist = [];
+    sum_velocity = 0;
+    all_velocities = [];
+    mean_velocity = 0;
+    total_dist = 0;
+    counter = 0;
+    flag = false;
+
+}
+
+function setDatapoint(){
+
+    counter += 1;
+    
+    var table = document.getElementById('table');
+    row = table.insertRow(1);
+    cell1 = row.insertCell(0);
+    cell2 = row.insertCell(1);
+    cell3 = row.insertCell(2);
+    cell4 = row.insertCell(3);
+    
+    cell1.innerHTML = counter;
+    cell2.innerHTML = delta_t;
+    cell3.innerHTML = velocity;
+    cell4.innerHTML = total_dist;
+    
 }
 
 function meanArray(array){
