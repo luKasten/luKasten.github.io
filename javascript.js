@@ -1,19 +1,14 @@
-
-
 var last_long;
 var last_lat;
 var lat;
 var long;
-var velocity;
-
-var total_dist = 0.0;
-var i = 0;
 var timestamp;
 var last_timestamp;
 var velocity;
-var total_dist = 0;
+var all_dist = [];
 var dist;
 var sum_velocity = 0;
+var all_velocities = [];
 var mean_velocity = 0;
 var counter = 0;
 
@@ -40,22 +35,24 @@ function start(){
         console.log(position);
         dist = measure(lat,long,last_lat,last_long);
         velocity = Math.round(dist / (delta_t/(60*60)))
-        
-        console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
-        console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
-        console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
-        console.log("sum_velocity: " + sum_velocity +", Typeof sum_Velocity: " + typeof(sum_velocity));
-        console.log("Counter: " + counter +", Typeof counter: " + typeof(counter));
 
-        total_dist += dist
-        
-        sum_velocity += velocity
+        all_velocities.push(velocity);
+        all_dist.push(dist);
+        //console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
+        //console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
+        //console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
+        //console.log("sum_velocity: " + sum_velocity +", Typeof sum_Velocity: " + typeof(sum_velocity));
+        //console.log("Counter: " + counter +", Typeof counter: " + typeof(counter));
 
-        mean_velocity = (sum_velocity / counter)
+        var total_dist = sumArray(all_dist);
+
+        mean_velocity = meanArray(all_velocities);
+
+        console.log(mean_velocity);
         
 
-        console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
-        console.log("Mean velo: " + mean_velocity +", Typeof Mean Velocity: " + typeof(mean_velocity));
+        //console.log("Total dist: " + dist +", Typeof Total Dist: " + typeof(total_dist));
+        //console.log("Mean velo: " + mean_velocity +", Typeof Mean Velocity: " + typeof(mean_velocity));
 
 
         if (isNaN(velocity)){
@@ -101,7 +98,31 @@ function start(){
 
 }
 
+function meanArray(array){
+    var sum = 0;
+    for(var i = 0; i<array.length; i++){
+        if (isNaN(array[i])) {
+            
+        } else {
+            sum += array[i]
+        }
+        
+    }
+    return sum/array.length;
+}
 
+function sumArray(array){
+    var sum = 0;
+    for(var i = 0; i<array.length; i++){
+        if (isNaN(array[i])) {
+            
+        } else {
+            sum += array[i]
+        }
+        
+    }
+    return sum;
+}
 
 function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement function https://en.wikipedia.org/wiki/Haversine_formula
     var R = 6378.137; // Radius of earth in KM
