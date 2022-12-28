@@ -57,13 +57,13 @@ function start(){
         if (isNaN(velocity)){
             document.getElementById("velocity").innerHTML = "--";
         } else {
-            document.getElementById("velocity").innerHTML = Math.round(velocity).toString();
+            document.getElementById("velocity").innerHTML = (Math.round(velocity*100)/100).toString();
         };
 
         if (isNaN(total_dist)){
             document.getElementById("total-dist").innerHTML = "--";
         } else {
-            document.getElementById("total-dist").innerHTML = Math.round(total_dist).toString();
+            document.getElementById("total-dist").innerHTML = (Math.round(total_dist*100)/100).toString();
         };
 
         if (isNaN(delta_t)){
@@ -75,13 +75,13 @@ function start(){
         if (isNaN(dist)){
             document.getElementById("dist").innerHTML = "--";
         } else {
-            document.getElementById("dist").innerHTML = dist.toString();
+            document.getElementById("dist").innerHTML = (Math.round(dist*100)/100).toString();
         };
         
         if (isNaN(mean_velocity)){
             document.getElementById("mean-velocity").innerHTML = "--";
         } else {
-            document.getElementById("mean-velocity").innerHTML = Math.round(mean_velocity).toString();
+            document.getElementById("mean-velocity").innerHTML = (Math.round(mean_velocity*100)/100).toString();
         };
     }
 
