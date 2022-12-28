@@ -1,25 +1,61 @@
-var x = document.getElementById("demo");
-var last_long = 0.0;
-var last_lat = 0.0;
+var last_long;
+var last_lat;
 var lat;
 var long;
+var velocity;
 
-total_dist = 0.0;
-var position = 0.0;
+var total_dist = 0.0;
 var i = 0;
+var timestamp;
+var last_timestamp;
+var velocity;
+
+
 //test of git push
 
 function start(){
+
+    
     
     const success = (position) => {
+        
         last_lat = lat;
         last_long = long;
         lat = position.coords.latitude;
         long = position.coords.longitude;
+        var timestamp = position.timestamp;
+        delta_t = timestamp - last_timestamp;
+        last_timestamp = position.timestamp;
         console.log(position);
         dist = measure(lat,long,last_lat,last_long);
+        velocity = dist / (delta_t/(1000*60*60));
+        console.log("Dist: " + dist +", Typeof Dist: " + typeof(dist));
+        console.log("Velocity: " + velocity +", Typeof Velocity: " + typeof(velocity));
         total_dist = total_dist + dist;
-        console.log(total_dist);
+        console.log("Total Distance: " + dist +", Typeof Total Distance: " + typeof(dist));
+
+        if (isNaN(velocity)){
+            document.getElementById("velocity").innerHTML = "--";
+        } else {
+            document.getElementById("velocity").innerHTML = velocity.toString();
+        }
+
+        if (isNaN(total_dist)){
+            document.getElementById("total-dist").innerHTML = "--";
+        } else {
+            document.getElementById("total-dist").innerHTML = total_dist.toString();
+        }
+
+        if (isNaN(delta_t)){
+            document.getElementById("delta-t").innerHTML = "--";
+        } else {
+            document.getElementById("delta-t").innerHTML = delta_t.toString();
+        }
+
+
+        
+        
+        
     }
     const error = (position) => {
         console.log("Error, not connected to GPS");
