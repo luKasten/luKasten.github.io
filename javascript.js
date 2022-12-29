@@ -13,6 +13,8 @@ var mean_velocity = 0;
 var total_dist = 0;
 var counter = 0;
 var flag = false;
+var time = 0;
+var times = [];
 
 
 
@@ -43,6 +45,8 @@ function start(){
         //Add variables to Dataarrays
         all_velocities.push(velocity);
         all_dist.push(dist);
+        time = time+timestamp;
+        times.push(time)
         
         //Calculate Total-Distance and Mean-Velocity
         total_dist = Math.round(sumArray(all_dist));
@@ -81,6 +85,9 @@ function start(){
         } else {
             document.getElementById("mean-velocity").innerHTML = (Math.round(mean_velocity*100)/100).toString();
         };
+        
+        var btn_start = document.getElementById("btn-start");
+        btn_start.style.backgroundColor = "#0DFF00";
     }
 
     const error = (position) => {
@@ -97,6 +104,7 @@ function start(){
         flag = true;
         var btn_start = document.getElementById("btn-start");
         btn_start.textContent = "Set Datapoint";
+        btn_start.style.backgroundColor = "#0D96FF";
         navigator.geolocation.watchPosition(success, error);
     }
 
@@ -104,6 +112,7 @@ function start(){
 
 }
 function reset(){
+    Plotly.newPlot("chart", data);
     flag = false;
     all_dist = [];
     sum_velocity = 0;
@@ -174,4 +183,25 @@ function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement fun
     var d = R * c;
     return d * 1000; // meters
 }
+
+var xArray = [50,60,70,80,90,100,110,120,130,140,150];
+var yArray = [7,8,8,9,9,9,10,11,14,14,15];
+
+// Define Data
+var data = [{
+    x: all_velocities,
+    y: times,
+    mode: "lines",
+    type: "scatter"
+}];
+
+// Define Layout
+var layout = {
+    xaxis: {range: [40, 160], title: "Square Meters"},
+    yaxis: {range: [5, 16], title: "Price in Millions"},
+    title: "House Prices vs Size"
+};
+
+// Display using Plotly
+
 
