@@ -13,11 +13,12 @@ var mean_velocity = 0;
 var total_dist = 0;
 var counter = 0;
 var flag = false;
-var time = 0;
+var time;
 var times = [];
+var time_axis = [];
 
 var data = [{
-    x: times,
+    x: time_axis,
     y: all_velocities,
     mode: "lines",
     type: "scatter"
@@ -29,8 +30,6 @@ var layout = {
     yaxis: {title: "Velocities in km/h"},
     title: "Velocities of the Journey"
 };
-
-
 
 //test of git push
 
@@ -59,8 +58,8 @@ function start(){
         //Add variables to Dataarrays
         all_velocities.push(velocity);
         all_dist.push(dist);
-        time = (time+(timestamp/1000));
-        times.push(time);
+
+        times.push(delta_t);
         
         //Calculate Total-Distance and Mean-Velocity
         total_dist = Math.round(sumArray(all_dist));
@@ -126,6 +125,8 @@ function start(){
 
 }
 function reset(){
+    createTimeArray(times);
+    console.log(time_axis)
     Plotly.newPlot("chart", data, layout);
     flag = false;
     all_dist = [];
@@ -138,6 +139,19 @@ function reset(){
     var btn_start = document.getElementById("btn-start");
     btn_start.textContent = "Start Journey";
     
+
+}
+
+function createTimeArray(array){
+    var sum = 0;
+    for(let i =0;i<array.length;i++){
+        if (isNaN(array[i])) {
+            time_axis.push(sum+=1);
+        } else {
+            time_axis.push(sum += (array[i]/1000));
+        }
+
+    }
 
 }
 
