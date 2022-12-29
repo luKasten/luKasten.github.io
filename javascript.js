@@ -16,6 +16,20 @@ var flag = false;
 var time = 0;
 var times = [];
 
+var data = [{
+    x: times,
+    y: all_velocities,
+    mode: "lines",
+    type: "scatter"
+}];
+
+// Define Layout
+var layout = {
+    xaxis: {title: "Time in seconds"},
+    yaxis: {title: "Velocities in km/h"},
+    title: "Velocities of the Journey"
+};
+
 
 
 //test of git push
@@ -45,8 +59,8 @@ function start(){
         //Add variables to Dataarrays
         all_velocities.push(velocity);
         all_dist.push(dist);
-        time = time+timestamp;
-        times.push(time)
+        time = (time+(timestamp/1000));
+        times.push(time);
         
         //Calculate Total-Distance and Mean-Velocity
         total_dist = Math.round(sumArray(all_dist));
@@ -112,7 +126,7 @@ function start(){
 
 }
 function reset(){
-    Plotly.newPlot("chart", data);
+    Plotly.newPlot("chart", data, layout);
     flag = false;
     all_dist = [];
     sum_velocity = 0;
@@ -188,20 +202,7 @@ var xArray = [50,60,70,80,90,100,110,120,130,140,150];
 var yArray = [7,8,8,9,9,9,10,11,14,14,15];
 
 // Define Data
-var data = [{
-    x: all_velocities,
-    y: times,
-    mode: "lines",
-    type: "scatter"
-}];
 
-// Define Layout
-var layout = {
-    xaxis: {range: [40, 160], title: "Square Meters"},
-    yaxis: {range: [5, 16], title: "Price in Millions"},
-    title: "House Prices vs Size"
-};
 
-// Display using Plotly
 
 
