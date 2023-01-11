@@ -37,7 +37,7 @@ var layout = {
 function start(){
 
     var error_banner = document.getElementById("error");
-    error_banner.style.display = "none";
+    error_banner.style.visability = "hidden";
 
     const success = (position) => {     
         //Set the last position   
@@ -110,7 +110,7 @@ function start(){
     // Errorhandling if the device has no GPS function
 
     const error = (position) => {
-        error_banner.style.display = "inline";
+        error_banner.style.visibility = "visible";
     }
 
     
