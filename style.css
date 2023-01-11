@@ -7,7 +7,6 @@
 }
 
 .header{
-    
     text-align: left;
     background-color: rgb(255, 193, 59);
     width: 100%;
@@ -25,6 +24,7 @@
     height: 300px;
     margin: auto;
     margin-bottom: 30px;
+    margin-top: 30px;
 }
 
 #velocity{
@@ -50,6 +50,7 @@
     height: 50px;
     margin: 10px;
     border-radius: 10px;
+
 }
 
 .btn-end{
@@ -58,6 +59,7 @@
     margin: 10px;
     border-radius: 10px;
     background-color: rgb(255, 110, 64);
+    margin-top: 30px;
 }
 .table{
     margin: 10px;
@@ -77,7 +79,7 @@
     color: rgb(245, 240, 225);
 }
 #error{
-    visibility: hidden;
+    display: none;
     background-color: rgba(255, 0, 0, 0.398);
     margin-top: 3px;
     margin-left: 5px;

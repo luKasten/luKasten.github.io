@@ -35,8 +35,9 @@ var layout = {
 // Will be executen when start button will be pressed
 
 function start(){
-    var error_banner = getElementById("error")
-    error_banner.style.visibility = "hidden";
+
+    var error_banner = document.getElementById("error");
+    error_banner.style.display = "none";
 
     const success = (position) => {     
         //Set the last position   
@@ -109,8 +110,7 @@ function start(){
     // Errorhandling if the device has no GPS function
 
     const error = (position) => {
-        
-        error_banner.style.visibility = "visible";
+        error_banner.style.display = "inline";
     }
 
     
