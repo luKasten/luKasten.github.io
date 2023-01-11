@@ -130,6 +130,8 @@ function start(){
     
 
 }
+
+// Resets all parameters and the journey can be restarted
 function reset(){
     createTimeArray(times);
     console.log(time_axis)
