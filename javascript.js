@@ -17,6 +17,7 @@ var time;
 var times = [];
 var time_axis = [];
 
+// Data Array for plotting at the end
 var data = [{
     x: time_axis,
     y: all_velocities,
@@ -24,16 +25,18 @@ var data = [{
     type: "scatter"
 }];
 
-// Define Layout
+// Define Layout of Plot
 var layout = {
     xaxis: {title: "Time in seconds"},
     yaxis: {title: "Velocities in km/h"},
     title: "Velocities of the Journey"
 };
 
-//test of git push
+// Will be executen when start button will be pressed
 
 function start(){
+    var error_banner = getElementById("error")
+    error_banner.style.visibility = "hidden";
 
     const success = (position) => {     
         //Set the last position   
@@ -103,8 +106,11 @@ function start(){
         btn_start.style.backgroundColor = "#0DFF00";
     }
 
+    // Errorhandling if the device has no GPS function
+
     const error = (position) => {
-        console.log("Error, not connected to GPS");
+        
+        error_banner.style.visibility = "visible";
     }
 
     
@@ -155,6 +161,8 @@ function createTimeArray(array){
 
 }
 
+// adds Datapoint to table
+
 function setDatapoint(){
 
     counter += 1;
@@ -173,6 +181,8 @@ function setDatapoint(){
     
 }
 
+// means all values of an array
+
 function meanArray(array){
     var sum = 0;
     amount_NaN = 0;
@@ -187,6 +197,8 @@ function meanArray(array){
     return sum/(array.length-amount_NaN);
 }
 
+// summs all values of an array
+
 function sumArray(array){
     var sum = 0;
     for(var i = 0; i<array.length; i++){
@@ -200,7 +212,11 @@ function sumArray(array){
     return sum;
 }
 
-function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement function https://en.wikipedia.org/wiki/Haversine_formula
+// generally used geo measurement function https://en.wikipedia.org/wiki/Haversine_formula
+// function taken from https://stackoverflow.com/questions/639695/how-to-convert-latitude-or-longitude-to-meters
+// The haversine formula determines the great-circle distance between two points on a sphere given their longitudes and latitudes.
+
+function measure(lat1, lon1, lat2, lon2){
     var R = 6378.137; // Radius of earth in KM
     var dLat = lat2 * Math.PI / 180 - lat1 * Math.PI / 180;
     var dLon = lon2 * Math.PI / 180 - lon1 * Math.PI / 180;
@@ -211,12 +227,6 @@ function measure(lat1, lon1, lat2, lon2){  // generally used geo measurement fun
     var d = R * c;
     return d * 1000; // meters
 }
-
-var xArray = [50,60,70,80,90,100,110,120,130,140,150];
-var yArray = [7,8,8,9,9,9,10,11,14,14,15];
-
-// Define Data
-
 
 
 
