@@ -1,48 +1,225 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Menü</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LuKastens miniapps</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f9;
+    /* === Theme (Dark) === */
+    :root{
+      --bg:#0f172a;         /* Tiefes Dunkelblau */
+      --surface:#111827;    /* App-Bar / Flächen */
+      --card:#1f2937;       /* Kacheln */
+      --text:#e5e7eb;       /* Primärtext */
+      --muted:#9ca3af;      /* Sekundärtext */
+      --accent:#22c55e;     /* Grün-Akzent */
+      --ring:#334155;       /* Umriss */
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --danger:#ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
       margin: 0;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      -webkit-text-size-adjust: 100%;
+      text-rendering: optimizeLegibility;
     }
-    .menu {
+
+    /* === Header === */
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: color-mix(in oklab, var(--bg) 85%, transparent);
+      backdrop-filter: saturate(1.1) blur(6px);
+      border-bottom: 1px solid #1f2937;
+    }
+    .bar {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      padding: .9rem .9rem;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: .2px;
+      font-weight: 700;
+    }
+    .sub { color: var(--muted); font-size: .9rem; }
+
+    /* === Grid (mobile first: 2 Spalten) === */
+    main { max-width: 1000px; margin: 0 auto; padding: 1rem .9rem 2rem; }
+    .grid {
       display: grid;
-      grid-template-columns: repeat(2, 200px);
-      gap: 20px;
+      grid-template-columns: repeat(2, minmax(0, 1fr)); /* 2 Kacheln pro Reihe auf Mobile */
+      gap: .9rem;
     }
+    @media (min-width: 640px){ .grid { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+    @media (min-width: 960px){ .grid { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+
+    /* === Tile === */
     .tile {
-      background-color: #3498db;
-      color: white;
-      font-size: 1.2em;
-      font-weight: bold;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 150px;
-      border-radius: 15px;
-      cursor: pointer;
+      display: grid;
+      grid-template-rows: 1fr auto;
+      place-items: center;
+      gap: .35rem;
+      min-height: 116px;
+      padding: 1rem;
       text-decoration: none;
-      transition: transform 0.2s, background-color 0.3s;
+      color: var(--text);
+      background: linear-gradient(180deg, color-mix(in oklab, var(--card) 92%, transparent), var(--card));
+      border: 1px solid #263043;
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      transition: transform .16s ease, border-color .16s ease, background .16s ease;
+      outline: none;
     }
-    .tile:hover {
-      transform: scale(1.05);
-      background-color: #2980b9;
+    .tile:hover { transform: translateY(-2px); border-color: var(--accent); }
+    .tile:active { transform: translateY(0); }
+    .tile:focus-visible { box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 40%, transparent); }
+    .tile .icon { font-size: 1.8rem; line-height: 1; opacity: .95; }
+    .tile .label { font-weight: 700; letter-spacing: .2px; }
+    .tile .muted { font-size: .85rem; color: var(--muted); }
+    .tile.accent { border-color: color-mix(in oklab, var(--accent) 35%, #263043); }
+
+    /* Mini-Toast für Fehlermeldungen */
+    .toast {
+      position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+      background: #1f2937; color: var(--text); border: 1px solid #374151;
+      padding: .65rem .9rem; border-radius: 10px; box-shadow: var(--shadow);
+      opacity: 0; pointer-events:none; transition: opacity .2s ease, transform .2s ease;
     }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+    .toast .danger { color: var(--danger); font-weight: 700; }
   </style>
 </head>
 <body>
-  <div class="menu">
-    <a href="App_Scanner/scanner.html" class="tile">Scanner</a>
-    <a href="App_Datenbank/datenbank.html" class="tile">Datenbank</a>
-  </div>
+  <header>
+    <div class="bar">
+      <h1>LuKastens - Miniapps</h1>
+      <span class="sub">Schnelle Tools</span>
+    </div>
+  </header>
+
+  <main aria-label="App-Menü">
+    <section class="grid" role="list">
+      <!-- 1) Scanner -->
+      <a class="tile accent" role="listitem" href="App_Scanner/scanner.html" aria-label="Scanner öffnen">
+        <div class="icon">📷</div>
+        <div class="label">Scanner</div>
+        <div class="muted">Foto ➜ Text (OCR)</div>
+      </a>
+
+      <!-- 2) Datenbank -->
+      <a class="tile" role="listitem" href="App_Datenbank/datenbank.html" aria-label="Datenbank öffnen">
+        <div class="icon">🗄️</div>
+        <div class="label">Datenbank</div>
+        <div class="muted">Sammlungen &amp; Suchen</div>
+      </a>
+
+      <!-- Weitere Kacheln (bei Bedarf reaktivieren)
+      <a class="tile" role="listitem" href="#" aria-label="Notizen öffnen">
+        <div class="icon">📝</div>
+        <div class="label">Notizen</div>
+        <div class="muted">Schnell festhalten</div>
+      </a>
+
+      <a class="tile" role="listitem" href="#" aria-label="Aufgaben öffnen">
+        <div class="icon">✅</div>
+        <div class="label">Aufgaben</div>
+        <div class="muted">To-dos &amp; Fällig</div>
+      </a>
+
+      <a class="tile" role="listitem" href="#" aria-label="Kalender öffnen">
+        <div class="icon">📆</div>
+        <div class="label">Kalender</div>
+        <div class="muted">Termine im Blick</div>
+      </a>
+
+      <a class="tile" role="listitem" href="#" aria-label="Dateien öffnen">
+        <div class="icon">📂</div>
+        <div class="label">Dateien</div>
+        <div class="muted">Upload &amp; Links</div>
+      </a>
+
+      <a class="tile" role="listitem" href="#" aria-label="Einstellungen öffnen">
+        <div class="icon">⚙️</div>
+        <div class="label">Einstellungen</div>
+        <div class="muted">App anpassen</div>
+      </a>
+
+      <a class="tile" role="listitem" href="#" aria-label="Hilfe öffnen">
+        <div class="icon">❓</div>
+        <div class="label">Hilfe</div>
+        <div class="muted">Tipps &amp; Infos</div> 
+      </a>
+      -->
+    </section>
+  </main>
+
+  <!-- Toast für Fehlermeldungen -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      const REQUIRED_PW = "161";
+      const SESSION_KEY = "luk_pw_ok"; // Merkt erfolgreichen Login bis Tab/Browser-Sitzung endet
+
+      function showToast(msg, isDanger=false){
+        const t = document.getElementById('toast');
+        t.innerHTML = isDanger ? '<span class="danger">Fehler:</span> ' + msg : msg;
+        t.classList.add('show');
+        clearTimeout(t._hideTimer);
+        t._hideTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+      }
+
+      function askPasswordIfNeeded(nextHref){
+        // Schon freigeschaltet?
+        if (sessionStorage.getItem(SESSION_KEY) === "1") {
+          window.location.href = nextHref;
+          return;
+        }
+        const entered = window.prompt("Passwort eingeben:");
+        if (entered === null) {
+          // Abgebrochen
+          return;
+        }
+        if (entered.trim() === REQUIRED_PW) {
+          sessionStorage.setItem(SESSION_KEY, "1");
+          window.location.href = nextHref;
+        } else {
+          showToast("Falsches Passwort.", true);
+        }
+      }
+
+      // Intercept alle Kachel-Klicks
+      document.addEventListener('click', function(ev){
+        const a = ev.target.closest('a.tile');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        // Nur echte Links abfangen (nicht #)
+        if (!href || href === '#') return;
+        ev.preventDefault();
+        askPasswordIfNeeded(href);
+      });
+
+      // Auch Tastatur-Enter auf fokussierten Tiles abfangen
+      document.addEventListener('keydown', function(ev){
+        if (ev.key !== 'Enter') return;
+        const a = document.activeElement && document.activeElement.closest && document.activeElement.closest('a.tile');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        if (!href || href === '#') return;
+        ev.preventDefault();
+        askPasswordIfNeeded(href);
+      });
+    })();
+  </script>
 </body>
 </html>
