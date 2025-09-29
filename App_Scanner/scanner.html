@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Notiz-Scanner</title>
+  <style>
+    :root { --bg:#0f172a; --surface:#111827; --card:#1f2937; --text:#e5e7eb; --muted:#9ca3af; --accent:#22c55e; --danger:#ef4444; }
+    * { box-sizing: border-box; }
+    html, body { margin:0; padding:0; background:var(--bg); color:var(--text); font:16px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    header { position: sticky; top:0; z-index:3; backdrop-filter:saturate(1.2) blur(6px); background:color-mix(in oklab, var(--bg) 82%, transparent); border-bottom:1px solid #1f2937; }
+    .bar { max-width:900px; margin:0 auto; display:flex; align-items:center; gap:.75rem; padding:.9rem .9rem; }
+    h1 { font-size:1.15rem; margin:0; letter-spacing:.2px; font-weight:700; }
+    main { max-width:900px; margin:0 auto; padding:1rem .9rem 6rem; }
+
+    .empty { text-align:center; color:var(--muted); padding:3rem 1rem; border:1px dashed #334155; background:color-mix(in oklab, var(--bg) 90%, transparent); border-radius:18px; }
+
+    .list { display:grid; gap:.75rem; margin:0; padding:0; list-style:none; }
+    .item { display:grid; gap:.5rem; padding:.9rem; background:var(--card); border:1px solid #263043; border-radius:16px; }
+    .row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
+    .meta { font-size:.9rem; color:var(--muted); }
+    .text { white-space:pre-wrap; word-wrap:break-word; }
+
+    .fab { position:fixed; right:1rem; bottom:5.25rem; z-index:4; width:64px; height:64px; border-radius:32px; display:grid; place-items:center; font-size:2rem; color:#00140a; background:var(--accent); border:none; box-shadow:0 10px 30px rgba(0,0,0,.35); }
+    .fab:active { transform:translateY(1px) scale(.995); }
+
+    .actions { position:fixed; left:0; right:0; bottom:0; z-index:3; background:linear-gradient(0deg,#0b1224 0%, rgba(11,18,36,.9) 70%, transparent); padding:1rem .9rem 1.2rem; }
+    .actions .tray { max-width:900px; margin:0 auto; display:flex; gap:.6rem; }
+
+    button, input, textarea { font:inherit; color:inherit; }
+    .btn { appearance:none; border:1px solid #334155; background:var(--surface); color:var(--text); padding:.8rem 1rem; border-radius:14px; cursor:pointer; }
+    .btn.primary { background:var(--accent); color:#062312; border-color:transparent; }
+    .btn.ghost { background:transparent; }
+    .btn.danger { background:var(--danger); border-color:transparent; }
+
+    dialog { border:none; border-radius:16px; padding:0; max-width:560px; width:92vw; background:#0b1224; color:var(--text); box-shadow:0 20px 60px rgba(0,0,0,.55); }
+    dialog::backdrop { backdrop-filter:blur(4px); background:rgba(0,0,0,.45); }
+    .dlg { padding:1rem; }
+    .dlg h2 { margin:.25rem 0 .25rem; font-size:1.1rem; }
+    .fld { display:grid; gap:.35rem; margin:.65rem 0; }
+    .fld label { font-size:.9rem; color:var(--muted); }
+    .fld input, .fld textarea { padding:.7rem .8rem; border-radius:12px; border:1px solid #334155; background:#0e1730; }
+    .optline { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin:.5rem 0; }
+    .optline .radio { display:flex; gap:.35rem; align-items:center; }
+    .optline .small { opacity:.85; }
+
+    .spinner { position:fixed; inset:0; display:none; place-items:center; z-index:999; }
+    .spinner.active { display:grid; }
+    .spin-card { background:#0b1224; border:1px solid #1f2937; padding:1rem 1.2rem; border-radius:16px; display:grid; gap:.6rem; text-align:center; }
+    .ring { width:38px; height:38px; border-radius:50%; border:3px solid #39425a; border-top-color:var(--accent); animation: rot 1s linear infinite; margin:0 auto; }
+    @keyframes rot { to { transform: rotate(360deg); } }
+
+    /* Bilder vollständig zeigen (keine Ränder abschneiden) */
+    .thumb {
+      width:100%;
+      height:auto;
+      max-height:60vh;
+      object-fit:contain;
+      display:block;
+      margin:0 auto;
+      border-radius:12px;
+      border:1px solid #22314d;
+      background:#0b1224;
+    }
+
+    .small { font-size:.85rem; color:var(--muted); }
+    .kbd { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size:.85em; background:#0e1730; border:1px solid #233252; padding:.15rem .4rem; border-radius:6px; }
+
+    /* Vergleich: mobil 1-spaltig, ab 640px 2-spaltig */
+    .twocol { display:grid; gap:.8rem; grid-template-columns:1fr; }
+    @media (min-width:640px){ .twocol { grid-template-columns:1fr 1fr; } }
+    .panel { border:1px solid #233252; border-radius:12px; padding:.6rem; background:#0e1730; }
+
+    /* Button-Spinner im Button selbst */
+    .btn.loading { position:relative; opacity:.85; pointer-events:none; }
+    .btn.loading .spinner-dot{
+      display:inline-block; width:1em; height:1em; margin-left:.5em; vertical-align:-2px;
+      border:2px solid currentColor; border-right-color:transparent; border-radius:50%;
+      animation: rot .8s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>Notiz-Scanner</h1>
+      <span class="small">Foto ➜ OCR ➜ Seite ➜ Liste ➜ Export</span>
+    </div>
+  </header>
+
+  <main>
+    <p id="hint" class="small" style="margin:.2rem 0 1rem;">
+      Tipps: Tippe auf <span class="kbd">＋</span>, mache ein Foto von gedrucktem Text, gib die Seitenzahl ein. Deine Einträge bleiben lokal (kein Upload außer an den gewählten OCR-Dienst).
+    </p>
+
+    <ul id="entryList" class="list"></ul>
+    <div id="emptyView" class="empty" hidden>
+      <p>Noch keine Einträge.</p>
+      <p>Tippe auf das große <span class="kbd">＋</span>, um zu starten.</p>
+    </div>
+
+    <!-- Hidden file input for camera capture -->
+    <input id="camera" type="file" accept="image/*" capture="environment" hidden />
+
+    <!-- Page number dialog -->
+    <dialog id="pageDialog">
+      <form method="dialog" class="dlg" id="pageForm">
+        <h2>Seitenzahl</h2>
+        <p class="small">Gib die Seitenzahl des fotografierten Texts an.</p>
+        <div class="fld">
+          <label for="pageInput">Seite</label>
+          <input id="pageInput" name="page" type="number" inputmode="numeric" min="1" required placeholder="z. B. 123" />
+        </div>
+        <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.6rem;">
+          <button class="btn ghost" value="cancel">Abbrechen</button>
+          <button class="btn primary" value="ok">Übernehmen</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Book info dialog -->
+    <dialog id="bookDialog">
+      <form method="dialog" class="dlg" id="bookForm">
+        <h2>Buchinformationen</h2>
+        <p class="small">Diese Daten werden für den CSV-Export verwendet.</p>
+        <div class="fld">
+          <label for="titleInput">Buchtitel</label>
+          <input id="titleInput" name="title" required placeholder="Titel" />
+        </div>
+        <div class="fld">
+          <label for="authorInput">Autor·in</label>
+          <input id="authorInput" name="author" required placeholder="Autor·in" />
+        </div>
+        <div class="fld">
+          <label for="isbnInput">ISBN (optional)</label>
+          <input id="isbnInput" name="isbn" inputmode="numeric" placeholder="z. B. 978…" />
+        </div>
+        <div style="display:flex; gap:.5rem; justify-content:space-between; margin-top:.6rem;">
+          <button class="btn ghost" value="cancel">Zurück</button>
+          <button class="btn primary" value="ok">CSV speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Preview dialog after capture -->
+    <dialog id="previewDialog">
+      <form method="dialog" class="dlg" id="previewForm">
+        <h2>Foto geprüft</h2>
+        <!-- Zeigt das aktuell gewählte Bild vollständig -->
+        <img id="previewImg" class="thumb" alt="Vorschau" />
+        <div class="optline">
+          <span class="small">Modus:</span>
+          <label class="radio"><input type="radio" name="mode" value="bin" checked> Binarisiert</label>
+          <label class="radio"><input type="radio" name="mode" value="orig"> Original</label>
+          <span class="small">·</span>
+          <button id="runOCRBtn" type="button" class="btn">Erkennung starten</button>
+          <button id="compareBtn" type="button" class="btn ghost" title="Beide Modi vergleichen">Beide vergleichen</button>
+        </div>
+        <!-- Groß und scrollbar, nur Textausgaben -->
+        <div id="ocrPreview" class="panel small" style="max-height:70vh; overflow:auto;"></div>
+        <div style="display:flex; gap:.5rem; justify-content:space-between; margin-top:.6rem;">
+          <button class="btn ghost" value="redo">Neu aufnehmen</button>
+          <button class="btn primary" value="ok">Weiter</button>
+        </div>
+      </form>
+    </dialog>
+
+    <!-- Busy overlay -->
+    <div id="busy" class="spinner" aria-live="polite" aria-busy="true">
+      <div class="spin-card">
+        <div class="ring"></div>
+        <div id="busyMsg">Erkenne Text…</div>
+      </div>
+    </div>
+  </main>
+
+  <div class="actions">
+    <div class="tray">
+      <button id="finishBtn" class="btn" style="flex:1">Abschließen</button>
+      <button id="clearBtn" class="btn danger" title="Liste löschen">Zurücksetzen</button>
+    </div>
+  </div>
+
+  <button id="addBtn" class="fab" aria-label="Eintrag hinzufügen">＋</button>
+
+  <script>
+  ;(function(){
+    // === OCR.space API ===
+    const OCRSPACE_API_KEY = 'K81049799288957';
+    const OCRSPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
+    const OCR_LANG = 'ger'; // 'ger' = Deutsch, 'eng' = Englisch, etc.
+
+    const el = (id) => document.getElementById(id);
+    const camera = el('camera');
+    const addBtn = el('addBtn');
+    const entryList = el('entryList');
+    const emptyView = el('emptyView');
+    const pageDialog = el('pageDialog');
+    const previewDialog = el('previewDialog');
+    const previewImg = el('previewImg');
+    const ocrPreview = el('ocrPreview');
+    const busy = el('busy');
+    const busyMsg = el('busyMsg');
+    const finishBtn = el('finishBtn');
+    const clearBtn = el('clearBtn');
+
+    const runOCRBtn = document.getElementById('runOCRBtn');
+    const compareBtn = document.getElementById('compareBtn');
+
+    // State
+    let entries = loadEntries();
+    let lastOCRText = '';
+    let lastOCRTextBin = '';
+    let lastOCRTextOrig = '';
+    let displayOrig = ''; // DataURL für UI
+    let displayBin  = ''; // DataURL für UI
+    let sendOrig    = ''; // komprimierte DataURL für API
+    let sendBin     = ''; // komprimierte DataURL für API
+    let currentMode = 'bin';
+
+    render();
+
+    addBtn.addEventListener('click', () => {
+      camera.value = '';
+      camera.click();
+    });
+
+    camera.addEventListener('change', async (ev) => {
+      const file = ev.target.files && ev.target.files[0];
+      if(!file) return;
+      try {
+        setBusy(true, 'Bereite Bilder vor…');
+
+        // Original-DataURL (für UI)
+        displayOrig = await fileToDataURL(file);
+
+        // Binarisierte Variante (für UI)
+        const processed = await preprocessBinarize(file);
+        displayBin = processed.dataUrl;
+
+        // Für API: unter 1 MB drücken
+        sendOrig = await ensureUnderLimit(displayOrig, {
+          prefer: 'image/jpeg',
+          grayscale: true,     // Original vor JPEG in Graustufen → spart Bytes
+          startQuality: 0.85,
+          minQuality: 0.5
+        });
+        sendBin = await ensureUnderLimit(displayBin, {
+          prefer: 'image/png'  // bei echter S/W ist PNG oft extrem klein
+          // Fallback auf JPEG/Downscale passiert intern bei Bedarf
+        });
+
+        // UI initial: binarisiert anzeigen (vollständig)
+        currentMode = 'bin';
+        previewImg.src = displayBin;
+        ocrPreview.innerHTML = '<em>Noch keine OCR ausgeführt. Wähle Modus und klicke „Erkennung starten“.</em>';
+
+        setupModeRadios();
+
+        setBusy(false);
+
+        // Vorschau-Dialog
+        const choice = await openDialog(previewDialog);
+        if(choice === 'redo') {
+          camera.value = '';
+          camera.click();
+          return;
+        }
+
+        if(!lastOCRText){
+          alert('Bitte zuerst die Texterkennung starten.');
+          camera.value = '';
+          return;
+        }
+
+        // Seitenzahl abfragen & speichern
+        const pageRes = await askPageNumber();
+        if(!pageRes.ok) { camera.value=''; return; }
+        addEntry({ text:lastOCRText, page: pageRes.page, created: Date.now() });
+
+      } catch(err){
+        alert('Fehler: ' + (err && err.message || err));
+        console.error(err);
+        setBusy(false);
+        camera.value = '';
+      } finally {
+        camera.value = '';
+      }
+    });
+
+    // Button-Spinner Helper
+    async function runWithButtonSpinner(btn, work, label='Erkennen…'){
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('loading');
+      btn.innerHTML = `${label}<span class="spinner-dot" aria-hidden="true"></span>`;
+      try { return await work(); }
+      finally {
+        btn.disabled = false;
+        btn.classList.remove('loading');
+        btn.innerHTML = originalHTML;
+      }
+    }
+
+    runOCRBtn.addEventListener('click', async () => {
+      await runWithButtonSpinner(runOCRBtn, async () => {
+        setBusy(true, `Erkenne Text (${currentMode === 'bin' ? 'binarisiert' : 'original'})…`);
+        const dataUrl = currentMode === 'bin' ? sendBin : sendOrig;
+        const text = await ocrSpaceFromDataUrl(dataUrl);
+        if(currentMode === 'bin'){ lastOCRTextBin = text; } else { lastOCRTextOrig = text; }
+        lastOCRText = text;
+        // Nur Text anzeigen (kein Bild im Container)
+        ocrPreview.innerHTML =
+          '<div class="panel"><strong>' +
+          (currentMode === 'bin' ? 'Binarisiert' : 'Original') +
+          '</strong><br><pre class="small" style="white-space:pre-wrap; margin:0;">' +
+          escapeHTML(text || '— Kein Text erkannt —') +
+          '</pre></div>';
+      }, 'Erkennen…');
+      setBusy(false);
+    });
+
+    compareBtn.addEventListener('click', async () => {
+      try{
+        setBusy(true, 'Vergleiche beide Modi…');
+        // Falls noch nicht vorhanden, parallel laden
+        const tasks = [];
+        if(!lastOCRTextBin)  tasks.push(ocrSpaceFromDataUrl(sendBin).then(t=>lastOCRTextBin=t));
+        if(!lastOCRTextOrig) tasks.push(ocrSpaceFromDataUrl(sendOrig).then(t=>lastOCRTextOrig=t));
+        if(tasks.length) await Promise.all(tasks);
+
+        // Anzeige: je Modus eigener Text-Container (ohne Bild)
+        ocrPreview.innerHTML =
+          '<div class="twocol">' +
+            '<div class="panel">' +
+              '<strong>Binarisiert</strong>' +
+              '<pre class="small" style="white-space:pre-wrap; margin:.5rem 0 0;">'+escapeHTML(lastOCRTextBin||'— Kein Text erkannt —')+'</pre>' +
+            '</div>' +
+            '<div class="panel">' +
+              '<strong>Original</strong>' +
+              '<pre class="small" style="white-space:pre-wrap; margin:.5rem 0 0;">'+escapeHTML(lastOCRTextOrig||'— Kein Text erkannt —')+'</pre>' +
+            '</div>' +
+          '</div>';
+
+        // Standard-Ergebnis: binarisiert (oder ändere hier)
+        lastOCRText = lastOCRTextBin || lastOCRTextOrig || '';
+      } catch(err){
+        alert('Vergleich fehlgeschlagen: ' + (err && err.message || err));
+        console.error(err);
+      } finally {
+        setBusy(false);
+      }
+    });
+
+    finishBtn.addEventListener('click', async () => {
+      if(entries.length === 0){
+        alert('Keine Einträge vorhanden.');
+        return;
+      }
+      const { ok, title, author, isbn } = await askBookInfo();
+      if(!ok) return;
+      const csv = buildCSV(entries, { title, author, isbn });
+      const fileName = makeSafeFileName(`${title || 'Notizen'}-${new Date().toISOString().slice(0,10)}.csv`);
+      downloadBlob(new Blob([csv], { type:'text/csv;charset=utf-8' }), fileName);
+    });
+
+    clearBtn.addEventListener('click', () => {
+      if(confirm('Liste wirklich löschen?')){
+        entries = [];
+        saveEntries(entries);
+        render();
+      }
+    });
+
+    function setupModeRadios(){
+      const radios = document.querySelectorAll('input[name="mode"]');
+      radios.forEach(r => {
+        r.onchange = () => {
+          currentMode = r.value; // 'bin' | 'orig'
+          previewImg.src = (currentMode === 'bin') ? displayBin : displayOrig; // Bild oben weiterhin vollständig
+          if(!lastOCRTextBin && !lastOCRTextOrig){
+            ocrPreview.innerHTML = '<em>Noch keine OCR ausgeführt. Klicke „Erkennung starten“.</em>';
+          }
+        };
+      });
+    }
+
+    // === OCR.space Call ===
+    async function ocrSpaceFromDataUrl(dataUrl){
+      const form = new FormData();
+      form.append('apikey', OCRSPACE_API_KEY);
+      form.append('language', OCR_LANG);
+      form.append('isOverlayRequired', 'false');
+      form.append('OCREngine', '2');
+      form.append('scale', 'true');
+      form.append('detectOrientation', 'true');
+      form.append('base64Image', dataUrl);
+
+      const resp = await fetch(OCRSPACE_ENDPOINT, { method:'POST', body:form });
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      if(json.IsErroredOnProcessing){
+        const msg = (json.ErrorMessage && json.ErrorMessage.join ? json.ErrorMessage.join('; ') : json.ErrorMessage) || 'Unbekannter OCR-Fehler';
+        throw new Error(msg);
+      }
+      const first = (json.ParsedResults && json.ParsedResults[0]) || {};
+      return (first.ParsedText || '').trim();
+    }
+
+    // ===== Bild-Vorverarbeitung: Graustufen → Auto-Kontrast → Otsu =====
+    async function preprocessBinarize(file){
+      const img = await loadImageFromFile(file);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      // skalieren (schneller + weniger Rauschen)
+      const maxW = 2000, maxH = 2000;
+      let { width, height } = img;
+      const scale = Math.min(1, maxW / width, maxH / height);
+      width = Math.round(width * scale);
+      height = Math.round(height * scale);
+      canvas.width = width; canvas.height = height;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      let imgData = ctx.getImageData(0, 0, width, height);
+      let data = imgData.data;
+
+      // 1) Graustufen (Rec. 601)
+      const gray = new Uint8ClampedArray(width * height);
+      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        gray[j] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      }
+
+      // 2) Auto-Kontrast (1% Clipping)
+      histogramStretchInPlace(gray, 256, 0.01);
+
+      // 3) Otsu-Schwelle
+      const thr = otsuThreshold(gray, 256);
+
+      // 4) Binarisieren
+      for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
+        const v = gray[i] <= thr ? 0 : 255;
+        data[p] = data[p + 1] = data[p + 2] = v;
+        data[p + 3] = 255;
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const dataUrl = canvas.toDataURL('image/png');
+      return { dataUrl };
+    }
+
+    // ======= Kompressions-/Skalierungs-Toolkit (< 1 MB) =======
+    async function dataUrlBytes(u){
+      const blob = await (await fetch(u)).blob();
+      return blob.size; // Bytes der Bilddaten
+    }
+
+    async function dataUrlToCanvas(dataUrl){
+      const img = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.onerror = rej;
+        im.src = dataUrl;
+      });
+      const c = document.createElement('canvas');
+      c.width = img.naturalWidth; c.height = img.naturalHeight;
+      c.getContext('2d').drawImage(img, 0, 0);
+      return c;
+    }
+
+    function toGrayscaleInPlace(canvas){
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const { width:w, height:h } = canvas;
+      const imgData = ctx.getImageData(0,0,w,h);
+      const d = imgData.data;
+      for(let i=0;i<d.length;i+=4){
+        const y = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+        d[i]=d[i+1]=d[i+2]=y;
+      }
+      ctx.putImageData(imgData,0,0);
+    }
+
+    function scaleCanvas(canvas, factor){
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(canvas.width * factor));
+      c.height = Math.max(1, Math.round(canvas.height * factor));
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(canvas, 0, 0, c.width, c.height);
+      return c;
+    }
+
+    async function ensureUnderLimit(dataUrl, {
+      maxBytes = 950 * 1024,   // kleiner Puffer unter 1 MB
+      prefer = 'image/png',    // 'image/png' oder 'image/jpeg'
+      grayscale = false,       // vor JPEG entsättigen?
+      startQuality = 0.85,
+      minQuality = 0.5,
+      maxSteps = 8
+    } = {}){
+      let canvas = await dataUrlToCanvas(dataUrl);
+
+      if(prefer === 'image/png'){
+        let out = canvas.toDataURL('image/png');
+        if(await dataUrlBytes(out) <= maxBytes) return out;
+        // sonst Fallback auf JPEG
+      }
+
+      if(grayscale) toGrayscaleInPlace(canvas);
+
+      for(let step=0; step<maxSteps; step++){
+        // Qualität per Binary-Search
+        let low = minQuality, high = startQuality, best = null;
+        for(let i=0;i<6;i++){
+          const q = (low + high) / 2;
+          const out = canvas.toDataURL('image/jpeg', q);
+          const sz = await dataUrlBytes(out);
+          if(sz <= maxBytes){ best = out; low = q; } else { high = q; }
+          if(Math.abs(high-low) < 0.03) break;
+        }
+        if(best) return best;
+
+        // immer noch zu groß → skalieren und wiederholen
+        canvas = scaleCanvas(canvas, 0.85); // 15% kleiner
+      }
+      // letzter Versuch
+      return canvas.toDataURL('image/jpeg', minQuality);
+    }
+
+    // ===== Helpers: UI/Storage/CSV, Loader, Utils =====
+    function escapeHTML(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
+
+    function render(){
+      entryList.innerHTML = '';
+      if(entries.length === 0){ emptyView.hidden = false; return; }
+      emptyView.hidden = true;
+      for(const e of entries){
+        const li = document.createElement('li');
+        li.className = 'item';
+        const head = document.createElement('div');
+        head.className = 'row';
+        const meta = document.createElement('div');
+        meta.className = 'meta';
+        const date = new Date(e.created || Date.now());
+        meta.textContent = `Seite ${e.page} · ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+        const del = document.createElement('button');
+        del.className = 'btn ghost';
+        del.textContent = 'Löschen';
+        del.addEventListener('click', () => { removeEntry(e); });
+        head.append(meta, del);
+        const text = document.createElement('div');
+        text.className = 'text';
+        text.textContent = e.text || '—';
+        li.append(head, text);
+        entryList.append(li);
+      }
+    }
+
+    function addEntry(e){ entries.push(e); saveEntries(entries); render(); }
+    function removeEntry(e){ entries = entries.filter(x => x !== e); saveEntries(entries); render(); }
+
+    function saveEntries(arr){ try { localStorage.setItem('notizscanner.entries', JSON.stringify(arr)); } catch(err) { console.warn(err); } }
+    function loadEntries(){ try { return JSON.parse(localStorage.getItem('notizscanner.entries')||'[]'); } catch { return []; } }
+
+    function setBusy(on, msg){ busy.classList.toggle('active', !!on); if(msg) busyMsg.textContent = msg; }
+
+    function openDialog(dlg){
+      return new Promise((resolve) => {
+        const onClose = () => { dlg.removeEventListener('close', onClose); resolve(dlg.returnValue); };
+        dlg.addEventListener('close', onClose);
+        dlg.showModal();
+      });
+    }
+
+    async function askPageNumber(){
+      document.getElementById('pageInput').value = '';
+      const res = await openDialog(pageDialog);
+      if(res !== 'ok') return { ok:false };
+      const val = Number(document.getElementById('pageInput').value);
+      if(!Number.isFinite(val) || val < 1){ alert('Bitte eine gültige Seitenzahl eingeben.'); return { ok:false }; }
+      return { ok:true, page: Math.trunc(val) };
+    }
+
+    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+    // NEU: Buchinformationen-Dialog – direkt integriert
+    async function askBookInfo(){
+      // Felder leer lassen oder hier resetten:
+      // document.getElementById('bookForm').reset();
+
+      const dlg = document.getElementById('bookDialog');
+      const result = await openDialog(dlg);
+      if(result !== 'ok') return { ok:false };
+
+      const title  = document.getElementById('titleInput').value.trim();
+      const author = document.getElementById('authorInput').value.trim();
+      const isbn   = document.getElementById('isbnInput').value.trim();
+
+      if(!title || !author){
+        alert('Bitte Buchtitel und Autor·in ausfüllen.');
+        return { ok:false };
+      }
+      return { ok:true, title, author, isbn };
+    }
+    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+    function buildCSV(items, book){
+      const escape = (s) => '"' + (String(s||'').replaceAll('"', '""')) + '"';
+      const header = ['Text','Seite','Buchtitel','Autor','ISBN'];
+      const rows = [header.join(',')];
+      for(const it of items){
+        rows.push([ escape(it.text), it.page, escape(book.title), escape(book.author), escape(book.isbn||'') ].join(','));
+      }
+      return rows.join('\n');
+    }
+
+    function downloadBlob(blob, filename){
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    // NEU: fehlender Dateinamen-Helper
+    function makeSafeFileName(name){
+      return String(name).replace(/[\/:*?"<>|]+/g, '-').replace(/\s+/g,' ').trim();
+    }
+
+    function fileToDataURL(file){
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(file);
+      });
+    }
+
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    function histogramStretchInPlace(gray, levels = 256, clip = 0.01) {
+      const hist = new Uint32Array(levels);
+      for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
+
+      const n = gray.length;
+      const clipCount = Math.floor(n * clip);
+      let lo = 0, hi = levels - 1;
+
+      for (let v = 0, s = 0; v < levels; v++) { s += hist[v]; if (s > clipCount) { lo = v; break; } }
+      for (let v = levels - 1, s = 0; v >= 0; v--) { s += hist[v]; if (s > clipCount) { hi = v; break; } }
+      if (hi <= lo) return;
+
+      const scale = 255 / (hi - lo);
+      for (let i = 0; i < gray.length; i++) {
+        let v = (gray[i] - lo) * scale;
+        gray[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+    }
+
+    function otsuThreshold(gray, levels = 256) {
+      const hist = new Float64Array(levels);
+      const N = gray.length;
+      for (let i = 0; i < N; i++) hist[gray[i]]++;
+      for (let i = 0; i < levels; i++) hist[i] /= N;
+
+      const P1 = new Float64Array(levels);
+      const m  = new Float64Array(levels);
+      P1[0] = hist[0]; m[0] = 0;
+      for (let t = 1; t < levels; t++) { P1[t] = P1[t - 1] + hist[t]; m[t] = m[t - 1] + t * hist[t]; }
+
+      const mG = m[levels - 1];
+      let maxSigma = -1, thr = 0;
+      for (let t = 0; t < levels; t++) {
+        const w0 = P1[t], w1 = 1 - w0;
+        if (w0 === 0 || w1 === 0) continue;
+        const mu0 = m[t] / w0;
+        const mu1 = (mG - m[t]) / w1;
+        const sigmaB = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
+        if (sigmaB > maxSigma) { maxSigma = sigmaB; thr = t; }
+      }
+      return thr;
+    }
+
+    // iOS-Hinweis
+    if(/iPhone|iPad|iPod/i.test(navigator.userAgent)){
+      document.getElementById('hint').insertAdjacentHTML('beforeend', ' · iOS: Kamera-Erlaubnis erteilen.');
+    }
+  })();
+  </script>
+</body>
+</html>
