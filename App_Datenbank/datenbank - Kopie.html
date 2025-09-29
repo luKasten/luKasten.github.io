@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CSV-Viewer (Ordner-Upload)</title>
+  <style>
+    :root {
+      --bg: #0b0c10; /* dark */
+      --panel: #151720;
+      --text: #e8eaf0;
+      --muted: #aab0c0;
+      --accent: #7aa2ff;
+      --accent-2: #66d9e8;
+      --good: #7bd88f;
+      --warn: #ffcc66;
+      --bad: #ff6b6b;
+      --radius: 16px;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: linear-gradient(180deg, var(--bg) 0%, #0f111a 100%);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1100px; margin: 0 auto; padding: 24px;
+    }
+    header {
+      display: flex; gap: 16px; align-items: center; justify-content: space-between; flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    h1 { font-size: 1.35rem; margin: 0; letter-spacing: .2px; }
+    .card {
+      background: var(--panel); border-radius: var(--radius); box-shadow: 0 6px 30px rgba(0,0,0,.35);
+      border: 1px solid rgba(255,255,255,.06);
+    }
+    .controls { padding: 16px; display: grid; gap: 12px; grid-template-columns: 1fr; }
+    .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+    label { font-size: .95rem; color: var(--muted); }
+    input[type="file"] { color: var(--text); }
+    .pill { padding: 8px 10px; border-radius: 999px; background: rgba(122,162,255,.1); border: 1px dashed rgba(122,162,255,.4); font-size: .9rem; }
+    .hint { color: var(--muted); font-size: .9rem; }
+
+    .tabs { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .tab-btn { cursor: pointer; border: 1px solid rgba(255,255,255,.12); background: transparent; color: var(--text); padding: 8px 12px; border-radius: 10px; font-size: .95rem; }
+    .tab-btn.active { background: rgba(122,162,255,.15); border-color: rgba(122,162,255,.6); }
+
+    .panel { padding: 12px; display: none; }
+    .panel.active { display: block; }
+
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 24px; font-size: .95rem; }
+    thead th { position: sticky; top: 0; background: #1a1d29; z-index: 1; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,.06); text-align: left; vertical-align: top; }
+    tbody tr:hover { background: rgba(255,255,255,.03); }
+    .meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .badge { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 4px 8px; font-size: .8rem; color: var(--muted); }
+    .status { margin-left: auto; font-size: .9rem; }
+
+    details { border: 1px solid rgba(255,255,255,.08); border-radius: 10px; padding: 8px 10px; }
+    summary { cursor: pointer; color: var(--muted); }
+    code { background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 6px; }
+
+    .footer { color: var(--muted); font-size: .85rem; padding: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>CSV‑Viewer: Mehrere Dateien aus einem Ordner anzeigen</h1>
+      <div class="pill">Drag & Drop unterstützt</div>
+    </header>
+
+    <section class="card">
+      <div class="controls" id="dropzone">
+        <div class="row">
+          <label for="folderInput"><strong>Ordner auswählen:</strong></label>
+          <input id="folderInput" type="file" webkitdirectory directory multiple />
+        </div>
+        <div class="row">
+          <label class="hint">Tipp: In Deutschland sind CSVs oft mit Semikolon getrennt und als Windows‑1252 gespeichert. Diese Seite versucht Trennzeichen und Zeichensatz automatisch zu erkennen.</label>
+        </div>
+        <div class="row">
+          <details>
+            <summary>Optionen</summary>
+            <div class="row">
+              <label><input type="checkbox" id="trimCells" checked /> Leerzeichen an Feldrändern entfernen</label>
+            </div>
+            <div class="row">
+              <label><input type="checkbox" id="showLineNo" /> Zeilennummern anzeigen</label>
+            </div>
+          </details>
+        </div>
+        <div class="row status" id="status">Bereit.</div>
+      </div>
+      <div class="tabs" id="tabs" aria-label="Datei-Tabs" style="display:none;"></div>
+      <div id="panels" style="display:none;"></div>
+
+      <!-- Suchbereich & Ergebnisliste -->
+      <div class="sticky-top"><strong>Suchergebnisse</strong></div>
+      <div class="results-summary" id="resultsSummary">Noch keine Suche ausgeführt.</div>
+      <div class="controls" style="padding-top:0;">
+        <div class="row" style="gap:8px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:6px; flex:1;">
+            <label for="searchInput"><strong>Suche (alle Spalten, alle Dateien):</strong></label>
+            <input id="searchInput" type="text" placeholder="Wort oder Satzteil eingeben …" />
+          </div>
+          <button id="searchBtn" class="tab-btn" style="white-space:nowrap;">Suchen</button>
+          <button id="clearBtn" class="tab-btn" style="white-space:nowrap;">Zurücksetzen</button>
+        </div>
+      </div>
+      <div id="resultsPanel" class="panel active" style="display:block;"></div>
+
+      <!-- Vereinheitlichte Datentabelle -->
+      <div class="sticky-top"><strong>Alle Daten</strong></div>
+      <div class="results-summary" id="allDataSummary">Noch nicht aufgebaut.</div>
+      <div id="allDataPanel" class="panel active" style="display:block;"></div>
+    </section>
+
+    <p class="footer">Alle Daten werden nur lokal im Browser verarbeitet – es gibt keinen Upload an einen Server.</p>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    const setStatus = (msg) => { $('#status').textContent = msg; };
+
+    // Drag&Drop
+    const dropzone = $('#dropzone');
+    ;['dragenter','dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.style.outline = '2px dashed var(--accent)'; }, false));
+    ;['dragleave','drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.style.outline = 'none'; }, false));
+    dropzone.addEventListener('drop', ev => {
+      const items = ev.dataTransfer?.items;
+      if (items && items.length) {
+        // Flatten entries including subfolders
+        const filePromises = [];
+        for (const item of items) {
+          if (item.kind === 'file') {
+            const entry = item.webkitGetAsEntry?.();
+            if (entry) filePromises.push(...walkFileTree(entry));
+          }
+        }
+        Promise.all(filePromises).then(files => handleFileList(files.filter(f => f && f.name.endsWith('.csv'))));
+      }
+    });
+
+    function walkFileTree(entry) {
+      const out = [];
+      if (entry.isFile) {
+        out.push(new Promise(res => entry.file(file => res(file))));
+      } else if (entry.isDirectory) {
+        out.push(new Promise(res => entry.createReader().readEntries(async entries => {
+          const nested = await Promise.all(entries.map(walkFileTree).flat());
+          res(nested.flat());
+        })));
+      }
+      return out;
+    }
+
+    // File input
+    $('#folderInput').addEventListener('change', (e) => {
+      const files = Array.from(e.target.files || []).filter(f => f.name.toLowerCase().endsWith('.csv'));
+      handleFileList(files);
+    });
+
+    async function handleFileList(files) {
+      if (!files.length) { setStatus('Keine CSV-Dateien im Ordner gefunden.'); return; }
+      setStatus(`${files.length} Datei(en) gefunden. Lese & analysiere ...`);
+      // Sort by path/name for stable order
+      files.sort((a,b) => (a.webkitRelativePath||a.name).localeCompare(b.webkitRelativePath||b.name, 'de'));
+
+      // Clear previous
+      $('#tabs').innerHTML = '';
+      $('#panels').innerHTML = '';
+
+      let idx = 0;
+      for (const file of files) {
+        const { text, encoding } = await readFileSmart(file);
+        const delimiter = sniffDelimiter(text);
+        const parsed = parseCSV(text, { delimiter, trim: $('#trimCells').checked });
+        renderTable({ file, parsed, delimiter, encoding, index: idx++ });
+      }
+      activateTab(0);
+      setStatus(`Fertig. ${files.length} Datei(en) angezeigt.`);
+      if (window.buildAllDataFromDOM) window.buildAllDataFromDOM();
+    }
+
+    // Read file with UTF-8 then fallback to Windows-1252 if many replacement chars
+    async function readFileSmart(file) {
+      const buf = await file.arrayBuffer();
+      let dec = new TextDecoder('utf-8', { fatal: false });
+      let text = dec.decode(buf);
+      const bads = (text.match(/\uFFFD/g) || []).length;
+      let used = 'UTF-8';
+      if (bads > 5) {
+        try {
+          dec = new TextDecoder('windows-1252', { fatal: false });
+          text = dec.decode(buf);
+          used = 'Windows-1252';
+        } catch (e) { /* keep utf-8 */ }
+      }
+      return { text, encoding: used };
+    }
+
+    // Try to detect delimiter from header line
+    function sniffDelimiter(text) {
+      const firstLine = text.split(/\r?\n/).find(l => l.trim().length > 0) || '';
+      const candidates = [',',';','\t','|'];
+      let best = ','; let bestCount = -1;
+      for (const d of candidates) {
+        const count = splitCSVLine(firstLine, d).length;
+        if (count > bestCount) { bestCount = count; best = d; }
+      }
+      return best;
+    }
+
+    // Robust-ish CSV line splitter with quotes
+    function splitCSVLine(line, delimiter) {
+      const out = []; let cur = ''; let inQ = false; let i = 0;
+      while (i < line.length) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQ && line[i+1] === '"') { cur += '"'; i += 2; continue; }
+          inQ = !inQ; i++; continue;
+        }
+        if (!inQ && ch === delimiter) { out.push(cur); cur = ''; i++; continue; }
+        cur += ch; i++;
+      }
+      out.push(cur);
+      return out;
+    }
+
+    // CSV parser returning { headers:[], rows:[[]] }
+    function parseCSV(text, { delimiter = ',', trim = true } = {}) {
+      const lines = text.replace(/\r\n?/g, '\n').split('\n');
+      const rows = [];
+      for (const line of lines) {
+        // Handle multiline quoted fields by accumulating until quotes even
+        if (!rows._buf) rows._buf = '';
+        rows._buf += (rows._buf ? '\n' : '') + line;
+        const qCount = (rows._buf.match(/"/g) || []).length;
+        if (qCount % 2 === 1) continue; // still inside quotes
+        const parts = splitCSVLine(rows._buf, delimiter).map(c => trim ? c.trim() : c);
+        rows.push(parts);
+        rows._buf = '';
+      }
+      if (rows.length === 0) return { headers: [], rows: [] };
+      const headers = rows.shift();
+      return { headers, rows };
+    }
+
+    function renderTable({ file, parsed, delimiter, encoding, index }) {
+      const tabs = $('#tabs');
+      const panels = $('#panels');
+
+      const tab = document.createElement('button');
+      tab.className = 'tab-btn';
+      const rel = file.webkitRelativePath || file.name;
+      tab.textContent = rel;
+      tab.title = rel;
+      tab.dataset.index = index;
+      tab.addEventListener('click', () => activateTab(index));
+      tabs.appendChild(tab);
+
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.dataset.index = index;
+
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const info = document.createElement('div');
+      info.className = 'badge';
+      info.textContent = `${file.name} • ${formatBytes(file.size)} • Delim: ${showDelimiter(delimiter)} • Enc: ${encoding}`;
+      meta.appendChild(info);
+      panel.appendChild(meta);
+
+      const tbl = document.createElement('table');
+      const thead = document.createElement('thead');
+      const trh = document.createElement('tr');
+      if ($('#showLineNo').checked) {
+        const thln = document.createElement('th'); thln.textContent = '#'; trh.appendChild(thln);
+      }
+      for (const h of parsed.headers) {
+        const th = document.createElement('th');
+        th.textContent = h || '(leer)';
+        trh.appendChild(th);
+      }
+      thead.appendChild(trh);
+      tbl.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      parsed.rows.forEach((row, rIdx) => {
+        // Skip empty lines at end
+        if (row.length === 1 && row[0] === '') return;
+        const tr = document.createElement('tr');
+        if ($('#showLineNo').checked) {
+          const tdln = document.createElement('td'); tdln.textContent = String(rIdx+1); tr.appendChild(tdln);
+        }
+        for (let c = 0; c < parsed.headers.length; c++) {
+          const td = document.createElement('td');
+          td.textContent = row[c] ?? '';
+          tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+      });
+      tbl.appendChild(tbody);
+      panel.appendChild(tbl);
+
+      // Small summary
+      const summary = document.createElement('div');
+      summary.className = 'badge';
+      summary.textContent = `${parsed.rows.length} Zeilen × ${parsed.headers.length} Spalten`;
+      panel.appendChild(summary);
+
+      panels.appendChild(panel);
+    }
+
+    function activateTab(index) {
+      $$('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.index == index));
+      $$('.panel').forEach(p => p.classList.toggle('active', p.dataset.index == index));
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024, sizes = ['B','KB','MB','GB'];
+      const i = Math.floor(Math.log(bytes)/Math.log(k));
+      return `${(bytes/Math.pow(k,i)).toFixed(1)} ${sizes[i]}`;
+    }
+
+    function showDelimiter(d) { return d === '\t' ? 'Tab' : (d === ';' ? 'Semikolon' : (d === ',' ? 'Komma' : d)); }
+  </script>
+  <script>
+    (function(){
+      const NL = String.fromCharCode(10);
+      const TB = String.fromCharCode(9);
+      function $(s,el){ return (el||document).querySelector(s); }
+      function $$(s,el){ return Array.from((el||document).querySelectorAll(s)); }
+      function words(s){ return String(s).split(NL).join(' ').split(TB).join(' ').split(' ').filter(Boolean); }
+      function previewText(s, n){ const w = words(s); return w.length<=n ? w.join(' ') : w.slice(0,n).join(' ') + ' …'; }
+      function fullHighlight(s, q){
+        const esc = (x)=>String(x).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+        const safePattern = String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(safePattern, 'gi');
+        return esc(String(s)).replace(re, m=>`<mark>${m}</mark>`);
+      }
+
+      function contextAround(s, q, n){
+        const t = String(s);
+        const low = t.toLowerCase();
+        const ql = String(q).toLowerCase();
+        const at = low.indexOf(ql);
+        if (at < 0) return previewText(t, n*2);
+        const before = t.slice(0, at);
+        const hit = t.slice(at, at + q.length);
+        const after = t.slice(at + q.length);
+        const pre = words(before); const post = words(after);
+        const left = pre.slice(Math.max(0, pre.length - n)).join(' ');
+        const right = post.slice(0, n).join(' ');
+        return (pre.length>n? '… ' : '') + left + (left?' ':'') + '<mark>' + hit + '</mark>' + (right?' ':'') + right + (post.length>n? ' …' : '');
+      }
+
+      function buildAllDataFromDOM(){
+        const panels = $$('#panels .panel');
+        if (!panels.length) { $('#allDataPanel').innerHTML=''; $('#allDataSummary').textContent='Noch nicht aufgebaut.'; return; }
+        const rows = [];
+        const headersSet = new Set(['Datei']);
+        panels.forEach(panel => {
+          const meta = panel.querySelector('.meta .badge');
+          const fileName = meta ? meta.textContent.split(' • ')[0] : '';
+          const tbl = panel.querySelector('table');
+          if (!tbl) return;
+          const ths = Array.from(tbl.querySelectorAll('thead th')).map(th=>th.textContent);
+          const hasLine = ths.length && ths[0] === '#';
+          const hdrs = hasLine ? ths.slice(1) : ths;
+          hdrs.forEach(h=>headersSet.add(h||'(leer)'));
+          const trs = Array.from(tbl.querySelectorAll('tbody tr'));
+          trs.forEach((tr, idx)=>{
+            const tds = Array.from(tr.children).map(td=>td.textContent);
+            const lineNo = hasLine ? tds.shift() : String(idx+1);
+            const obj = { 'Datei': fileName, 'Zeile': lineNo };
+            hdrs.forEach((h,i)=>{ obj[h||'(leer)'] = tds[i] || ''; });
+            rows.push(obj);
+          });
+        });
+        const headers = Array.from(headersSet);
+        const panel = $('#allDataPanel');
+        panel.innerHTML='';
+        const tbl = document.createElement('table');
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        headers.forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+        thead.appendChild(trh); tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        rows.forEach(r=>{
+          const tr=document.createElement('tr');
+          headers.forEach(h=>{
+            const td=document.createElement('td');
+            if ((h||'').toLowerCase()==='text') { td.textContent = previewText(r[h]||'', 30); td.title = r[h]||''; }
+            else { td.textContent = r[h]||''; }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+        tbl.appendChild(tbody);
+        panel.appendChild(tbl);
+        $('#allDataSummary').textContent = rows.length + ' Zeilen in ' + panels.length + ' Datei(en)';
+        return { headers, rows };
+      }
+      window.buildAllDataFromDOM = buildAllDataFromDOM;
+
+      function doSearch(){
+        const q = ($('#searchInput')||{}).value || '';
+        const resPanel = $('#resultsPanel');
+        const resSum = $('#resultsSummary');
+        if (!q.trim()) { resPanel.innerHTML=''; resSum.textContent='Noch keine Suche ausgeführt.'; return; }
+        const data = buildAllDataFromDOM();
+        if (!data || !data.rows || !data.rows.length) { resPanel.innerHTML=''; resSum.textContent='Keine Daten.'; return; }
+        const headers = data.headers.filter(h=>h!=='Datei' && h!=='Zeile');
+        const results = [];
+        data.rows.forEach(r=>{
+          headers.forEach((h, idx)=>{
+            const val = String(r[h]||'');
+            if (val.toLowerCase().indexOf(q.toLowerCase()) >= 0) {
+              const isText = (h||'').toLowerCase()==='text';
+              const preview = isText ? contextAround(val, q, 50) : previewText(val, 20);
+              results.push({ title: r['Buchtitel']||'', author: r['Autor']||'', page: r['Seite']||'', preview, full: fullHighlight(val, q) });
+            }
+          });
+        });
+        renderResults(results, q);
+      }
+
+      function renderResults(results, q){
+        const panel = $('#resultsPanel');
+        panel.innerHTML = '';
+        const cnt = results.length;
+        $('#resultsSummary').textContent = cnt + ' Treffer für ' + '„' + q + '”';
+        if (!cnt) return;
+        const tbl = document.createElement('table');
+        const thead = document.createElement('thead');
+        const trh = document.createElement('tr');
+        ['Buchtitel','Autor','Seite','Text'].forEach(h=>{ const th=document.createElement('th'); th.textContent=h; trh.appendChild(th); });
+        thead.appendChild(trh); tbl.appendChild(thead);
+        const tbody = document.createElement('tbody');
+        results.forEach(r=>{
+          const tr = document.createElement('tr');
+          // Baue Zellen manuell (Buchtitel, Autor, Seite, Text (aufklappbar))
+        const tds = [];
+        const td1 = document.createElement('td'); td1.textContent = r.title || ''; tds.push(td1);
+        const td2 = document.createElement('td'); td2.textContent = r.author || ''; tds.push(td2);
+        const td3 = document.createElement('td'); td3.textContent = r.page != null ? String(r.page) : ''; tds.push(td3);
+        const td4 = document.createElement('td');
+        td4.innerHTML = `<details><summary>${r.preview}</summary><div style="margin-top:6px;">${r.full}</div></details>`;
+        tds.push(td4);
+        tds.forEach(td=>tr.appendChild(td));
+        tbody.appendChild(tr);
+        });
+        tbl.appendChild(tbody); panel.appendChild(tbl);
+        const badge=document.createElement('div'); badge.className='badge'; badge.textContent=cnt + ' Ergebnis(se)'; panel.appendChild(badge);
+      }
+
+      function wire(){
+        const btn = document.getElementById('searchBtn');
+        const clr = document.getElementById('clearBtn');
+        const inp = document.getElementById('searchInput');
+        if (btn) btn.addEventListener('click', doSearch);
+        if (clr) clr.addEventListener('click', function(){ if(inp) inp.value=''; document.getElementById('resultsPanel').innerHTML=''; document.getElementById('resultsSummary').textContent='Noch keine Suche ausgeführt.'; });
+        if (inp) inp.addEventListener('keydown', function(e){ if(e.key==='Enter') doSearch(); });
+        // build combined table once after small delay (DOM ready from original script)
+        setTimeout(buildAllDataFromDOM, 200);
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire); else wire();
+    })();
+  </script>
+</body>
+</html>
