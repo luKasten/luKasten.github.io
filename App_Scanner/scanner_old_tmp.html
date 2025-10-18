@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
@@ -43,36 +43,69 @@
     .fld { display:grid; gap:.35rem; margin:.65rem 0; }
     .fld label { font-size:.9rem; color:var(--muted); }
     .fld input, .fld textarea { padding:.7rem .8rem; border-radius:12px; border:1px solid #334155; background:#0e1730; }
+    .optline { display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin:.5rem 0; }
+    .optline .radio { display:flex; gap:.35rem; align-items:center; }
+    .optline .small { opacity:.85; }
 
     .spinner { position:fixed; inset:0; display:none; place-items:center; z-index:999; }
     .spinner.active { display:grid; }
     .spin-card { background:#0b1224; border:1px solid #1f2937; padding:1rem 1.2rem; border-radius:16px; display:grid; gap:.6rem; text-align:center; }
     .ring { width:38px; height:38px; border-radius:50%; border:3px solid #39425a; border-top-color:var(--accent); animation: rot 1s linear infinite; margin:0 auto; }
     @keyframes rot { to { transform: rotate(360deg); } }
+
+    /* Bilder vollst�ndig zeigen (keine R�nder abschneiden) */
+    .thumb {
+      width:100%;
+      height:auto;
+      max-height:60vh;
+      object-fit:contain;
+      display:block;
+      margin:0 auto;
+      border-radius:12px;
+      border:1px solid #22314d;
+      background:#0b1224;
+    }
+
+    .small { font-size:.85rem; color:var(--muted); }
+    .kbd { font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Courier New", monospace; font-size:.85em; background:#0e1730; border:1px solid #233252; padding:.15rem .4rem; border-radius:6px; }
+
+    /* Vergleich: mobil 1-spaltig, ab 640px 2-spaltig */
+    .twocol { display:grid; gap:.8rem; grid-template-columns:1fr; }
+    @media (min-width:640px){ .twocol { grid-template-columns:1fr 1fr; } }
+    .panel { border:1px solid #233252; border-radius:12px; padding:.6rem; background:#0e1730; }
+
+    /* Button-Spinner im Button selbst */
+    .btn.loading { position:relative; opacity:.85; pointer-events:none; }
+    .btn.loading .spinner-dot{
+      display:inline-block; width:1em; height:1em; margin-left:.5em; vertical-align:-2px;
+      border:2px solid currentColor; border-right-color:transparent; border-radius:50%;
+      animation: rot .8s linear infinite;
+    }
   </style>
 </head>
 <body>
   <header>
     <div class="bar">
       <h1>Notiz-Scanner</h1>
-      <span class="small">Foto → OCR → Seite → Liste → Export</span>
+      <span class="small">Foto ? OCR ? Seite ? Liste ? Export</span>
     </div>
   </header>
 
   <main>
     <p id="hint" class="small" style="margin:.2rem 0 1rem;">
-      Tipps: Tippe auf <span class="kbd">+</span>, mache ein Foto von gedrucktem Text, gib die Seitenzahl ein. Deine Einträge bleiben lokal (kein Upload außer an den gewählten OCR-Dienst).
+      Tipps: Tippe auf <span class="kbd">+</span>, mache ein Foto von gedrucktem Text, gib die Seitenzahl ein. Deine Eintr�ge bleiben lokal (kein Upload au�er an den gew�hlten OCR-Dienst).
     </p>
-    <p id="queueInfo" class="small" hidden>Warteschlange: 0</p>
 
     <ul id="entryList" class="list"></ul>
     <div id="emptyView" class="empty" hidden>
-      <p>Noch keine Einträge.</p>
-      <p>Tippe auf das große <span class="kbd">+</span>, um zu starten.</p>
+      <p>Noch keine Eintr�ge.</p>
+      <p>Tippe auf das gro�e <span class="kbd">+</span>, um zu starten.</p>
     </div>
 
+    <!-- Hidden file input for camera capture -->
     <input id="camera" type="file" accept="image/*" capture="environment" hidden />
 
+    <!-- Page number dialog -->
     <dialog id="pageDialog">
       <form method="dialog" class="dlg" id="pageForm">
         <h2>Seitenzahl</h2>
@@ -83,56 +116,59 @@
         </div>
         <div style="display:flex; gap:.5rem; justify-content:flex-end; margin-top:.6rem;">
           <button class="btn ghost" value="cancel">Abbrechen</button>
-          <button class="btn primary" value="ok">Übernehmen</button>
+          <button class="btn primary" value="ok">�bernehmen</button>
         </div>
       </form>
     </dialog>
 
+    <!-- Book info dialog -->
     <dialog id="bookDialog">
       <form method="dialog" class="dlg" id="bookForm">
         <h2>Buchinformationen</h2>
-        <p class="small">Diese Daten werden für den CSV-Export verwendet.</p>
+        <p class="small">Diese Daten werden f�r den CSV-Export verwendet.</p>
         <div class="fld">
           <label for="titleInput">Buchtitel</label>
           <input id="titleInput" name="title" required placeholder="Titel" />
         </div>
         <div class="fld">
-          <label for="authorInput">Autor*in</label>
-          <input id="authorInput" name="author" required placeholder="Autor*in" />
+          <label for="authorInput">Autor�in</label>
+          <input id="authorInput" name="author" required placeholder="Autor�in" />
         </div>
         <div class="fld">
           <label for="isbnInput">ISBN (optional)</label>
-          <input id="isbnInput" name="isbn" inputmode="numeric" placeholder="z. B. 978…" />
+          <input id="isbnInput" name="isbn" inputmode="numeric" placeholder="z. B. 978�" />
         </div>
         <div style="display:flex; gap:.5rem; justify-content:space-between; margin-top:.6rem;">
-          <button class="btn ghost" value="cancel">Zurück</button>
+          <button class="btn ghost" value="cancel">Zur�ck</button>
           <button class="btn primary" value="ok">CSV speichern</button>
         </div>
       </form>
     </dialog>
 
+    <!-- Busy overlay -->
     <div id="busy" class="spinner" aria-live="polite" aria-busy="true">
       <div class="spin-card">
         <div class="ring"></div>
-        <div id="busyMsg">Erkenne Text…</div>
+        <div id="busyMsg">Erkenne Text�</div>
       </div>
     </div>
   </main>
 
   <div class="actions">
     <div class="tray">
-      <button id="finishBtn" class="btn" style="flex:1">Abschließen</button>
-      <button id="clearBtn" class="btn danger" title="Liste löschen">Zurücksetzen</button>
+      <button id="finishBtn" class="btn" style="flex:1">Abschlie�en</button>
+      <button id="clearBtn" class="btn danger" title="Liste l�schen">Zur�cksetzen</button>
     </div>
   </div>
 
-  <button id="addBtn" class="fab" aria-label="Eintrag hinzufügen">＋</button>
+  <button id="addBtn" class="fab" aria-label="Eintrag hinzuf�gen">+</button>
 
   <script>
   ;(function(){
-    const OCRSPACE_API_KEY = 'K81049799288957';
+    // === OCR.space API ===
+    const OCRSPACE_API_KEY = 'K86497131688957';
     const OCRSPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
-    const OCR_LANG = 'ger';
+    const OCR_LANG = 'ger'; // 'ger' = Deutsch, 'eng' = Englisch, etc.
 
     const el = (id) => document.getElementById(id);
     const camera = el('camera');
@@ -144,17 +180,11 @@
     const busyMsg = el('busyMsg');
     const finishBtn = el('finishBtn');
     const clearBtn = el('clearBtn');
-    const queueInfo = el('queueInfo');
-    const MAX_RETRIES = 3;
 
     let entries = loadEntries();
     let pendingPage = null;
-    let jobQueue = [];
-    let isProcessingQueue = false;
-    let nextJobId = 1;
 
     render();
-    updateQueueInfo();
 
     addBtn.addEventListener('click', async () => {
       const pageRes = await askPageNumber();
@@ -174,33 +204,27 @@
         pendingPage = null;
         return;
       }
-      if(pendingPage === null){
+      if(!pendingPage){
         alert('Bitte zuerst die Seitenzahl eingeben.');
         camera.value = '';
         return;
       }
-      const jobPage = pendingPage;
-      pendingPage = null;
       try {
         setBusy(true, 'Bereite Foto vor...');
         const dataUrl = await fileToDataURL(file);
+        setBusy(true, 'Erkenne Text...');
         const sendImage = await ensureUnderLimit(dataUrl, {
           prefer: 'image/jpeg',
           startQuality: 0.85,
           minQuality: 0.5
         });
-        enqueueJob({
-          id: nextJobId++,
-          page: jobPage,
-          dataUrl: sendImage,
-          created: Date.now(),
-          attempts: 0
-        });
+        const text = await ocrSpaceFromDataUrl(sendImage);
+        addEntry({ text: text || '', page: pendingPage, created: Date.now() });
       } catch(err){
-        alert('Fehler beim Vorbereiten: ' + (err && err.message || err));
+        alert('Fehler: ' + (err && err.message || err));
         console.error(err);
-        pendingPage = jobPage;
       } finally {
+        pendingPage = null;
         camera.value = '';
         setBusy(false);
       }
@@ -208,7 +232,7 @@
 
     finishBtn.addEventListener('click', async () => {
       if(entries.length === 0){
-        alert('Keine Einträge vorhanden.');
+        alert('Keine Eintr�ge vorhanden.');
         return;
       }
       const { ok, title, author, isbn } = await askBookInfo();
@@ -219,72 +243,12 @@
     });
 
     clearBtn.addEventListener('click', () => {
-      if(confirm('Liste wirklich löschen?')){
+      if(confirm('Liste wirklich l�schen?')){
         entries = [];
         saveEntries(entries);
         render();
       }
     });
-
-    function enqueueJob(job){
-      jobQueue.push(job);
-      updateQueueInfo();
-      processQueue();
-    }
-
-    async function processQueue(){
-      if(isProcessingQueue) return;
-      isProcessingQueue = true;
-      while(jobQueue.length){
-        updateQueueInfo();
-        const job = jobQueue[0];
-        const success = await processJob(job);
-        jobQueue.shift();
-        if(!success){
-          console.warn('Job verworfen', job);
-        }
-        updateQueueInfo();
-      }
-      isProcessingQueue = false;
-      updateQueueInfo();
-    }
-
-    async function processJob(job){
-      for(let attempt = 1; attempt <= MAX_RETRIES; attempt++){
-        job.attempts = attempt;
-        updateQueueInfo();
-        try {
-          const text = await ocrSpaceFromDataUrl(job.dataUrl);
-          addEntry({ text: text || '', page: job.page, created: Date.now() });
-          return true;
-        } catch(err){
-          console.error(`OCR fehlgeschlagen (Versuch ${attempt}) für Seite ${job.page}`, err);
-          if(attempt >= MAX_RETRIES){
-            alert(`OCR für Seite ${job.page} ist nach ${MAX_RETRIES} Versuchen fehlgeschlagen.`);
-            return false;
-          }
-          await delay(1500);
-        }
-      }
-      return false;
-    }
-
-    function updateQueueInfo(){
-      if(jobQueue.length === 0){
-        queueInfo.hidden = true;
-        queueInfo.textContent = 'Warteschlange: 0';
-        return;
-      }
-      const current = jobQueue[0];
-      const attempt = current.attempts || 1;
-      const status = isProcessingQueue
-        ? `Aktuell: Seite ${current.page} (Versuch ${attempt}/${MAX_RETRIES})`
-        : 'Wartend';
-      const rest = jobQueue.slice(1).map(job => job.page).join(', ');
-      const suffix = rest ? ` · Nächste Seiten: ${rest}` : '';
-      queueInfo.hidden = false;
-      queueInfo.textContent = `Warteschlange: ${jobQueue.length} · ${status}${suffix}`;
-    }
 
     function computePreviewText(text){
       const fullText = String(text || '').trim();
@@ -317,11 +281,11 @@
         const meta = document.createElement('div');
         meta.className = 'meta';
         const date = new Date(entry.created || Date.now());
-        meta.textContent = `Seite ${entry.page} · ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+        meta.textContent = `Seite ${entry.page} � ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
 
         const del = document.createElement('button');
         del.className = 'btn ghost';
-        del.textContent = 'Löschen';
+        del.textContent = 'L�schen';
         del.addEventListener('click', () => removeEntry(entry));
 
         head.append(meta, del);
@@ -404,63 +368,50 @@
     }
 
     async function askPageNumber(){
-      el('pageInput').value = '';
+      document.getElementById('pageInput').value = '';
       const res = await openDialog(pageDialog);
       if(res !== 'ok') return { ok:false };
-      const val = Number(el('pageInput').value);
+      const val = Number(document.getElementById('pageInput').value);
       if(!Number.isFinite(val) || val < 1){
-        alert('Bitte eine gültige Seitenzahl eingeben.');
+        alert('Bitte eine g�ltige Seitenzahl eingeben.');
         return { ok:false };
       }
       return { ok:true, page: Math.trunc(val) };
     }
 
     async function askBookInfo(){
-      const result = await openDialog(el('bookDialog'));
+      const dlg = document.getElementById('bookDialog');
+      const result = await openDialog(dlg);
       if(result !== 'ok') return { ok:false };
 
-      const title  = el('titleInput').value.trim();
-      const author = el('authorInput').value.trim();
-      const isbn   = el('isbnInput').value.trim();
+      const title  = document.getElementById('titleInput').value.trim();
+      const author = document.getElementById('authorInput').value.trim();
+      const isbn   = document.getElementById('isbnInput').value.trim();
 
       if(!title || !author){
-        alert('Bitte Buchtitel und Autor*in ausfüllen.');
+        alert('Bitte Buchtitel und Autor*in ausf�llen.');
         return { ok:false };
       }
       return { ok:true, title, author, isbn };
-    }
-
-    function buildCSV(items, book){
-      const escape = (s) => '"' + (String(s || '').replaceAll('"', '""')) + '"';
+    }    function buildCSV(items, book){
+      const escape = (s) => '"' + (String(s||'').replaceAll('"', '""')) + '"';
       const header = ['Text','Seite','Buchtitel','Autor','ISBN'];
       const rows = [header.join(',')];
       for(const it of items){
-        rows.push([
-          escape(it.text),
-          it.page,
-          escape(book.title),
-          escape(book.author),
-          escape(book.isbn || '')
-        ].join(','));
+        rows.push([ escape(it.text), it.page, escape(book.title), escape(book.author), escape(book.isbn||'') ].join(','));
       }
       return rows.join('\n');
     }
 
     function downloadBlob(blob, filename){
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.click();
+      const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
+    // NEU: fehlender Dateinamen-Helper
     function makeSafeFileName(name){
       return String(name).replace(/[\/:*?"<>|]+/g, '-').replace(/\s+/g,' ').trim();
-    }
-
-    function escapeHTML(s){
-      return String(s || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
     }
 
     function fileToDataURL(file){
@@ -574,12 +525,9 @@
       return (first.ParsedText || '').trim();
     }
 
-    function delay(ms){
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
+    // iOS-Hinweis
     if(/iPhone|iPad|iPod/i.test(navigator.userAgent)){
-      document.getElementById('hint').insertAdjacentHTML('beforeend', ' · iOS: Kamera-Erlaubnis erteilen.');
+      document.getElementById('hint').insertAdjacentHTML('beforeend', ' � iOS: Kamera-Erlaubnis erteilen.');
     }
   })();
   </script>
