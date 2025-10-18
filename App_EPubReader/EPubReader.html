@@ -264,7 +264,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
           // Bilder in diesem HTML inline einbetten
           htmlText = await inlineImages(zip, pathInZip, htmlText);
 
-          const secTitle = extractTitle(htmlText) || `Abschnitt ${++idx}`;
+          const secTitle = extractSmartTitle(htmlText) || `Abschnitt ${++idx}`;
           const inner = extractBodyInner(htmlText);
           const anchor = `sec-${sections.length+1}`;
           sections.push({anchor, title: secTitle, html: inner});
@@ -339,15 +339,65 @@ html, body { max-width: 100%; overflow-x: hidden; }
       return {manifest, spine, metadata};
     }
 
-    function extractTitle(htmlText){
-      const h1 = htmlText.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i);
-      if (h1) return stripTags(h1[1]);
-      const h2 = htmlText.match(/<h2[^>]*>([\s\S]*?)<\/h2>/i);
-      if (h2) return stripTags(h2[1]);
-      const ti = htmlText.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-      if (ti) return stripTags(ti[1]);
-      return '';
+    function extractSmartTitle(htmlText){
+      // Robust gegen XHTML/HTML, kombiniert h1 + (direkt folgendes) h2/h3
+      let doc = new DOMParser().parseFromString(htmlText, 'text/html');
+      // Fallback auf XHTML, wenn text/html leer wirkt
+      if (!doc || !doc.body || !doc.body.textContent) {
+        doc = new DOMParser().parseFromString(htmlText, 'application/xhtml+xml');
+      }
+
+      const body = doc.body || doc.documentElement;
+      if (!body) return '';
+
+      // Alle Headings in Dokumentreihenfolge
+      const headings = Array.from(body.querySelectorAll('h1, h2, h3')).filter(h => (h.textContent||'').trim().length);
+      if (!headings.length) {
+        // Fallback auf <title>
+        const t = doc.querySelector('title');
+        return t ? stripTags(t.textContent) : '';
+      }
+
+      const first = headings[0];
+      const t1 = stripTags(first.textContent || '');
+
+      // Suche ein "Untertitel"-Heading, das direkt nach dem ersten folgt
+      // (überspringe leere/whitespace-only Geschwister)
+      let second = null;
+      for (let el = first.nextElementSibling; el; el = el.nextElementSibling) {
+        if (/^h[23]$/i.test(el.tagName) && (el.textContent || '').trim()) {
+          second = el;
+          break;
+        }
+        // Manche EPUBs packen den Untertitel in <p class="subtitle|title">
+        if (el.matches && el.matches('p.subtitle, p.title, div.subtitle, div.title') && (el.textContent || '').trim()) {
+          second = el;
+          break;
+        }
+        // Stoppe, wenn ein anderer Block kommt, damit wir nicht zu weit laufen
+        if (el.matches && el.matches('hr, section, article')) break;
+      }
+
+      // Heuristik: Wenn t1 nur „Chapter/Kapitel <Zahl>“ o. ä. ist, kombiniere mit t2
+      const looksLikeJustChapter =
+        /^(\s*(chapter|kapitel)\s+\d+\.?\s*)$/i.test(t1) ||
+        (t1.length <= 16 && /^(chapter|kapitel)\b/i.test(t1));
+
+      if (second) {
+        const t2 = stripTags(second.textContent || '').replace(/\s+/g, ' ').trim();
+        if (t2 && (looksLikeJustChapter || t1.length < 20)) {
+          return `${t1} – ${t2}`;
+        }
+      }
+
+      // Wenn im ersten Heading mehrere Inline-Spans o. Ä. sind, textContent deckt oft schon alles ab
+      return t1 || '';
     }
+
+    function stripTags(s){
+      return String(s).replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+    }
+
     function stripTags(s){ return String(s).replace(/<[^>]*>/g,'').trim(); }
 
     function extractBodyInner(htmlText){

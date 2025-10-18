@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8" />
@@ -20,6 +20,8 @@
     .row { display:flex; align-items:center; justify-content:space-between; gap:.75rem; }
     .meta { font-size:.9rem; color:var(--muted); }
     .text { white-space:pre-wrap; word-wrap:break-word; }
+    .text.preview { color:var(--text); }
+    .text.full { margin-top:.35rem; }
 
     .fab { position:fixed; right:1rem; bottom:5.25rem; z-index:4; width:64px; height:64px; border-radius:32px; display:grid; place-items:center; font-size:2rem; color:#00140a; background:var(--accent); border:none; box-shadow:0 10px 30px rgba(0,0,0,.35); }
     .fab:active { transform:translateY(1px) scale(.995); }
@@ -29,6 +31,7 @@
 
     button, input, textarea { font:inherit; color:inherit; }
     .btn { appearance:none; border:1px solid #334155; background:var(--surface); color:var(--text); padding:.8rem 1rem; border-radius:14px; cursor:pointer; }
+    .btn.small { padding:.5rem .75rem; font-size:.85rem; }
     .btn.primary { background:var(--accent); color:#062312; border-color:transparent; }
     .btn.ghost { background:transparent; }
     .btn.danger { background:var(--danger); border-color:transparent; }
@@ -84,7 +87,7 @@
   <header>
     <div class="bar">
       <h1>Notiz-Scanner</h1>
-      <span class="small">Foto ➜ OCR ➜ Seite ➜ Liste ➜ Export</span>
+      <span class="small">Foto → OCR → Seite → Liste → Export</span>
     </div>
   </header>
 
@@ -106,7 +109,7 @@
     <dialog id="pageDialog">
       <form method="dialog" class="dlg" id="pageForm">
         <h2>Seitenzahl</h2>
-        <p class="small">Gib die Seitenzahl des fotografierten Texts an.</p>
+        <p class="small">Gib die Seitenzahl des fotografierten Textes an.</p>
         <div class="fld">
           <label for="pageInput">Seite</label>
           <input id="pageInput" name="page" type="number" inputmode="numeric" min="1" required placeholder="z. B. 123" />
@@ -142,29 +145,6 @@
       </form>
     </dialog>
 
-    <!-- Preview dialog after capture -->
-    <dialog id="previewDialog">
-      <form method="dialog" class="dlg" id="previewForm">
-        <h2>Foto geprüft</h2>
-        <!-- Zeigt das aktuell gewählte Bild vollständig -->
-        <img id="previewImg" class="thumb" alt="Vorschau" />
-        <div class="optline">
-          <span class="small">Modus:</span>
-          <label class="radio"><input type="radio" name="mode" value="bin" checked> Binarisiert</label>
-          <label class="radio"><input type="radio" name="mode" value="orig"> Original</label>
-          <span class="small">·</span>
-          <button id="runOCRBtn" type="button" class="btn">Erkennung starten</button>
-          <button id="compareBtn" type="button" class="btn ghost" title="Beide Modi vergleichen">Beide vergleichen</button>
-        </div>
-        <!-- Groß und scrollbar, nur Textausgaben -->
-        <div id="ocrPreview" class="panel small" style="max-height:70vh; overflow:auto;"></div>
-        <div style="display:flex; gap:.5rem; justify-content:space-between; margin-top:.6rem;">
-          <button class="btn ghost" value="redo">Neu aufnehmen</button>
-          <button class="btn primary" value="ok">Weiter</button>
-        </div>
-      </form>
-    </dialog>
-
     <!-- Busy overlay -->
     <div id="busy" class="spinner" aria-live="polite" aria-busy="true">
       <div class="spin-card">
@@ -196,158 +176,56 @@
     const entryList = el('entryList');
     const emptyView = el('emptyView');
     const pageDialog = el('pageDialog');
-    const previewDialog = el('previewDialog');
-    const previewImg = el('previewImg');
-    const ocrPreview = el('ocrPreview');
     const busy = el('busy');
     const busyMsg = el('busyMsg');
     const finishBtn = el('finishBtn');
     const clearBtn = el('clearBtn');
 
-    const runOCRBtn = document.getElementById('runOCRBtn');
-    const compareBtn = document.getElementById('compareBtn');
-
-    // State
     let entries = loadEntries();
-    let lastOCRText = '';
-    let lastOCRTextBin = '';
-    let lastOCRTextOrig = '';
-    let displayOrig = ''; // DataURL für UI
-    let displayBin  = ''; // DataURL für UI
-    let sendOrig    = ''; // komprimierte DataURL für API
-    let sendBin     = ''; // komprimierte DataURL für API
-    let currentMode = 'bin';
+    let pendingPage = null;
 
     render();
 
-    addBtn.addEventListener('click', () => {
+    addBtn.addEventListener('click', async () => {
+      const pageRes = await askPageNumber();
+      if(!pageRes.ok){
+        pendingPage = null;
+        return;
+      }
+      pendingPage = pageRes.page;
       camera.value = '';
       camera.click();
     });
 
     camera.addEventListener('change', async (ev) => {
       const file = ev.target.files && ev.target.files[0];
-      if(!file) return;
+      if(!file){
+        camera.value = '';
+        pendingPage = null;
+        return;
+      }
+      if(!pendingPage){
+        alert('Bitte zuerst die Seitenzahl eingeben.');
+        camera.value = '';
+        return;
+      }
       try {
-        setBusy(true, 'Bereite Bilder vor…');
-
-        // Original-DataURL (für UI)
-        displayOrig = await fileToDataURL(file);
-
-        // Binarisierte Variante (für UI)
-        const processed = await preprocessBinarize(file);
-        displayBin = processed.dataUrl;
-
-        // Für API: unter 1 MB drücken
-        sendOrig = await ensureUnderLimit(displayOrig, {
+        setBusy(true, 'Bereite Foto vor...');
+        const dataUrl = await fileToDataURL(file);
+        setBusy(true, 'Erkenne Text...');
+        const sendImage = await ensureUnderLimit(dataUrl, {
           prefer: 'image/jpeg',
-          grayscale: true,     // Original vor JPEG in Graustufen → spart Bytes
           startQuality: 0.85,
           minQuality: 0.5
         });
-        sendBin = await ensureUnderLimit(displayBin, {
-          prefer: 'image/png'  // bei echter S/W ist PNG oft extrem klein
-          // Fallback auf JPEG/Downscale passiert intern bei Bedarf
-        });
-
-        // UI initial: binarisiert anzeigen (vollständig)
-        currentMode = 'bin';
-        previewImg.src = displayBin;
-        ocrPreview.innerHTML = '<em>Noch keine OCR ausgeführt. Wähle Modus und klicke „Erkennung starten“.</em>';
-
-        setupModeRadios();
-
-        setBusy(false);
-
-        // Vorschau-Dialog
-        const choice = await openDialog(previewDialog);
-        if(choice === 'redo') {
-          camera.value = '';
-          camera.click();
-          return;
-        }
-
-        if(!lastOCRText){
-          alert('Bitte zuerst die Texterkennung starten.');
-          camera.value = '';
-          return;
-        }
-
-        // Seitenzahl abfragen & speichern
-        const pageRes = await askPageNumber();
-        if(!pageRes.ok) { camera.value=''; return; }
-        addEntry({ text:lastOCRText, page: pageRes.page, created: Date.now() });
-
+        const text = await ocrSpaceFromDataUrl(sendImage);
+        addEntry({ text: text || '', page: pendingPage, created: Date.now() });
       } catch(err){
         alert('Fehler: ' + (err && err.message || err));
         console.error(err);
-        setBusy(false);
-        camera.value = '';
       } finally {
+        pendingPage = null;
         camera.value = '';
-      }
-    });
-
-    // Button-Spinner Helper
-    async function runWithButtonSpinner(btn, work, label='Erkennen…'){
-      const originalHTML = btn.innerHTML;
-      btn.disabled = true;
-      btn.classList.add('loading');
-      btn.innerHTML = `${label}<span class="spinner-dot" aria-hidden="true"></span>`;
-      try { return await work(); }
-      finally {
-        btn.disabled = false;
-        btn.classList.remove('loading');
-        btn.innerHTML = originalHTML;
-      }
-    }
-
-    runOCRBtn.addEventListener('click', async () => {
-      await runWithButtonSpinner(runOCRBtn, async () => {
-        setBusy(true, `Erkenne Text (${currentMode === 'bin' ? 'binarisiert' : 'original'})…`);
-        const dataUrl = currentMode === 'bin' ? sendBin : sendOrig;
-        const text = await ocrSpaceFromDataUrl(dataUrl);
-        if(currentMode === 'bin'){ lastOCRTextBin = text; } else { lastOCRTextOrig = text; }
-        lastOCRText = text;
-        // Nur Text anzeigen (kein Bild im Container)
-        ocrPreview.innerHTML =
-          '<div class="panel"><strong>' +
-          (currentMode === 'bin' ? 'Binarisiert' : 'Original') +
-          '</strong><br><pre class="small" style="white-space:pre-wrap; margin:0;">' +
-          escapeHTML(text || '— Kein Text erkannt —') +
-          '</pre></div>';
-      }, 'Erkennen…');
-      setBusy(false);
-    });
-
-    compareBtn.addEventListener('click', async () => {
-      try{
-        setBusy(true, 'Vergleiche beide Modi…');
-        // Falls noch nicht vorhanden, parallel laden
-        const tasks = [];
-        if(!lastOCRTextBin)  tasks.push(ocrSpaceFromDataUrl(sendBin).then(t=>lastOCRTextBin=t));
-        if(!lastOCRTextOrig) tasks.push(ocrSpaceFromDataUrl(sendOrig).then(t=>lastOCRTextOrig=t));
-        if(tasks.length) await Promise.all(tasks);
-
-        // Anzeige: je Modus eigener Text-Container (ohne Bild)
-        ocrPreview.innerHTML =
-          '<div class="twocol">' +
-            '<div class="panel">' +
-              '<strong>Binarisiert</strong>' +
-              '<pre class="small" style="white-space:pre-wrap; margin:.5rem 0 0;">'+escapeHTML(lastOCRTextBin||'— Kein Text erkannt —')+'</pre>' +
-            '</div>' +
-            '<div class="panel">' +
-              '<strong>Original</strong>' +
-              '<pre class="small" style="white-space:pre-wrap; margin:.5rem 0 0;">'+escapeHTML(lastOCRTextOrig||'— Kein Text erkannt —')+'</pre>' +
-            '</div>' +
-          '</div>';
-
-        // Standard-Ergebnis: binarisiert (oder ändere hier)
-        lastOCRText = lastOCRTextBin || lastOCRTextOrig || '';
-      } catch(err){
-        alert('Vergleich fehlgeschlagen: ' + (err && err.message || err));
-        console.error(err);
-      } finally {
         setBusy(false);
       }
     });
@@ -372,202 +250,118 @@
       }
     });
 
-    function setupModeRadios(){
-      const radios = document.querySelectorAll('input[name="mode"]');
-      radios.forEach(r => {
-        r.onchange = () => {
-          currentMode = r.value; // 'bin' | 'orig'
-          previewImg.src = (currentMode === 'bin') ? displayBin : displayOrig; // Bild oben weiterhin vollständig
-          if(!lastOCRTextBin && !lastOCRTextOrig){
-            ocrPreview.innerHTML = '<em>Noch keine OCR ausgeführt. Klicke „Erkennung starten“.</em>';
-          }
-        };
-      });
-    }
-
-    // === OCR.space Call ===
-    async function ocrSpaceFromDataUrl(dataUrl){
-      const form = new FormData();
-      form.append('apikey', OCRSPACE_API_KEY);
-      form.append('language', OCR_LANG);
-      form.append('isOverlayRequired', 'false');
-      form.append('OCREngine', '2');
-      form.append('scale', 'true');
-      form.append('detectOrientation', 'true');
-      form.append('base64Image', dataUrl);
-
-      const resp = await fetch(OCRSPACE_ENDPOINT, { method:'POST', body:form });
-      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const json = await resp.json();
-      if(json.IsErroredOnProcessing){
-        const msg = (json.ErrorMessage && json.ErrorMessage.join ? json.ErrorMessage.join('; ') : json.ErrorMessage) || 'Unbekannter OCR-Fehler';
-        throw new Error(msg);
+    function computePreviewText(text){
+      const fullText = String(text || '').trim();
+      if(!fullText){
+        return { preview:'[kein Text]', fullText:'', truncated:false };
       }
-      const first = (json.ParsedResults && json.ParsedResults[0]) || {};
-      return (first.ParsedText || '').trim();
-    }
-
-    // ===== Bild-Vorverarbeitung: Graustufen → Auto-Kontrast → Otsu =====
-    async function preprocessBinarize(file){
-      const img = await loadImageFromFile(file);
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-      // skalieren (schneller + weniger Rauschen)
-      const maxW = 2000, maxH = 2000;
-      let { width, height } = img;
-      const scale = Math.min(1, maxW / width, maxH / height);
-      width = Math.round(width * scale);
-      height = Math.round(height * scale);
-      canvas.width = width; canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-
-      let imgData = ctx.getImageData(0, 0, width, height);
-      let data = imgData.data;
-
-      // 1) Graustufen (Rec. 601)
-      const gray = new Uint8ClampedArray(width * height);
-      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
-        const r = data[i], g = data[i + 1], b = data[i + 2];
-        gray[j] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+      const words = fullText.split(/\s+/);
+      if(words.length <= 10){
+        return { preview: fullText, fullText, truncated:false };
       }
-
-      // 2) Auto-Kontrast (1% Clipping)
-      histogramStretchInPlace(gray, 256, 0.01);
-
-      // 3) Otsu-Schwelle
-      const thr = otsuThreshold(gray, 256);
-
-      // 4) Binarisieren
-      for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
-        const v = gray[i] <= thr ? 0 : 255;
-        data[p] = data[p + 1] = data[p + 2] = v;
-        data[p + 3] = 255;
-      }
-      ctx.putImageData(imgData, 0, 0);
-
-      const dataUrl = canvas.toDataURL('image/png');
-      return { dataUrl };
+      const head = words.slice(0, 5).join(' ');
+      const tail = words.slice(-5).join(' ');
+      return { preview: `${head} [...] ${tail}`, fullText, truncated:true };
     }
-
-    // ======= Kompressions-/Skalierungs-Toolkit (< 1 MB) =======
-    async function dataUrlBytes(u){
-      const blob = await (await fetch(u)).blob();
-      return blob.size; // Bytes der Bilddaten
-    }
-
-    async function dataUrlToCanvas(dataUrl){
-      const img = await new Promise((res, rej) => {
-        const im = new Image();
-        im.onload = () => res(im);
-        im.onerror = rej;
-        im.src = dataUrl;
-      });
-      const c = document.createElement('canvas');
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      c.getContext('2d').drawImage(img, 0, 0);
-      return c;
-    }
-
-    function toGrayscaleInPlace(canvas){
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      const { width:w, height:h } = canvas;
-      const imgData = ctx.getImageData(0,0,w,h);
-      const d = imgData.data;
-      for(let i=0;i<d.length;i+=4){
-        const y = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
-        d[i]=d[i+1]=d[i+2]=y;
-      }
-      ctx.putImageData(imgData,0,0);
-    }
-
-    function scaleCanvas(canvas, factor){
-      const c = document.createElement('canvas');
-      c.width = Math.max(1, Math.round(canvas.width * factor));
-      c.height = Math.max(1, Math.round(canvas.height * factor));
-      const ctx = c.getContext('2d');
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(canvas, 0, 0, c.width, c.height);
-      return c;
-    }
-
-    async function ensureUnderLimit(dataUrl, {
-      maxBytes = 950 * 1024,   // kleiner Puffer unter 1 MB
-      prefer = 'image/png',    // 'image/png' oder 'image/jpeg'
-      grayscale = false,       // vor JPEG entsättigen?
-      startQuality = 0.85,
-      minQuality = 0.5,
-      maxSteps = 8
-    } = {}){
-      let canvas = await dataUrlToCanvas(dataUrl);
-
-      if(prefer === 'image/png'){
-        let out = canvas.toDataURL('image/png');
-        if(await dataUrlBytes(out) <= maxBytes) return out;
-        // sonst Fallback auf JPEG
-      }
-
-      if(grayscale) toGrayscaleInPlace(canvas);
-
-      for(let step=0; step<maxSteps; step++){
-        // Qualität per Binary-Search
-        let low = minQuality, high = startQuality, best = null;
-        for(let i=0;i<6;i++){
-          const q = (low + high) / 2;
-          const out = canvas.toDataURL('image/jpeg', q);
-          const sz = await dataUrlBytes(out);
-          if(sz <= maxBytes){ best = out; low = q; } else { high = q; }
-          if(Math.abs(high-low) < 0.03) break;
-        }
-        if(best) return best;
-
-        // immer noch zu groß → skalieren und wiederholen
-        canvas = scaleCanvas(canvas, 0.85); // 15% kleiner
-      }
-      // letzter Versuch
-      return canvas.toDataURL('image/jpeg', minQuality);
-    }
-
-    // ===== Helpers: UI/Storage/CSV, Loader, Utils =====
-    function escapeHTML(s){ return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;'); }
 
     function render(){
       entryList.innerHTML = '';
-      if(entries.length === 0){ emptyView.hidden = false; return; }
+      if(entries.length === 0){
+        emptyView.hidden = false;
+        return;
+      }
       emptyView.hidden = true;
-      for(const e of entries){
+      for(const entry of entries){
         const li = document.createElement('li');
         li.className = 'item';
+
         const head = document.createElement('div');
         head.className = 'row';
+
         const meta = document.createElement('div');
         meta.className = 'meta';
-        const date = new Date(e.created || Date.now());
-        meta.textContent = `Seite ${e.page} · ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+        const date = new Date(entry.created || Date.now());
+        meta.textContent = `Seite ${entry.page} • ${date.toLocaleDateString()} ${date.toLocaleTimeString()}`;
+
         const del = document.createElement('button');
         del.className = 'btn ghost';
         del.textContent = 'Löschen';
-        del.addEventListener('click', () => { removeEntry(e); });
+        del.addEventListener('click', () => removeEntry(entry));
+
         head.append(meta, del);
-        const text = document.createElement('div');
-        text.className = 'text';
-        text.textContent = e.text || '—';
-        li.append(head, text);
+        li.append(head);
+
+        const { preview, fullText, truncated } = computePreviewText(entry.text);
+        const previewNode = document.createElement('div');
+        previewNode.className = 'text preview';
+        previewNode.textContent = preview;
+        li.append(previewNode);
+
+        if(truncated){
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'btn ghost small';
+          toggle.textContent = 'Volltext anzeigen';
+
+          const full = document.createElement('div');
+          full.className = 'text full';
+          full.hidden = true;
+          full.textContent = fullText;
+
+          let expanded = false;
+          toggle.addEventListener('click', () => {
+            expanded = !expanded;
+            full.hidden = !expanded;
+            toggle.textContent = expanded ? 'Volltext verbergen' : 'Volltext anzeigen';
+          });
+
+          li.append(toggle);
+          li.append(full);
+        }
+
         entryList.append(li);
       }
     }
 
-    function addEntry(e){ entries.push(e); saveEntries(entries); render(); }
-    function removeEntry(e){ entries = entries.filter(x => x !== e); saveEntries(entries); render(); }
+    function addEntry(entry){
+      entries.push(entry);
+      saveEntries(entries);
+      render();
+    }
 
-    function saveEntries(arr){ try { localStorage.setItem('notizscanner.entries', JSON.stringify(arr)); } catch(err) { console.warn(err); } }
-    function loadEntries(){ try { return JSON.parse(localStorage.getItem('notizscanner.entries')||'[]'); } catch { return []; } }
+    function removeEntry(entry){
+      entries = entries.filter((it) => it !== entry);
+      saveEntries(entries);
+      render();
+    }
 
-    function setBusy(on, msg){ busy.classList.toggle('active', !!on); if(msg) busyMsg.textContent = msg; }
+    function saveEntries(arr){
+      try {
+        localStorage.setItem('notizscanner.entries', JSON.stringify(arr));
+      } catch(err){
+        console.warn(err);
+      }
+    }
+
+    function loadEntries(){
+      try {
+        return JSON.parse(localStorage.getItem('notizscanner.entries') || '[]');
+      } catch {
+        return [];
+      }
+    }
+
+    function setBusy(on, msg){
+      busy.classList.toggle('active', !!on);
+      if(msg) busyMsg.textContent = msg;
+    }
 
     function openDialog(dlg){
       return new Promise((resolve) => {
-        const onClose = () => { dlg.removeEventListener('close', onClose); resolve(dlg.returnValue); };
+        const onClose = () => {
+          dlg.removeEventListener('close', onClose);
+          resolve(dlg.returnValue);
+        };
         dlg.addEventListener('close', onClose);
         dlg.showModal();
       });
@@ -578,16 +372,14 @@
       const res = await openDialog(pageDialog);
       if(res !== 'ok') return { ok:false };
       const val = Number(document.getElementById('pageInput').value);
-      if(!Number.isFinite(val) || val < 1){ alert('Bitte eine gültige Seitenzahl eingeben.'); return { ok:false }; }
+      if(!Number.isFinite(val) || val < 1){
+        alert('Bitte eine gültige Seitenzahl eingeben.');
+        return { ok:false };
+      }
       return { ok:true, page: Math.trunc(val) };
     }
 
-    // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-    // NEU: Buchinformationen-Dialog – direkt integriert
     async function askBookInfo(){
-      // Felder leer lassen oder hier resetten:
-      // document.getElementById('bookForm').reset();
-
       const dlg = document.getElementById('bookDialog');
       const result = await openDialog(dlg);
       if(result !== 'ok') return { ok:false };
@@ -597,14 +389,11 @@
       const isbn   = document.getElementById('isbnInput').value.trim();
 
       if(!title || !author){
-        alert('Bitte Buchtitel und Autor·in ausfüllen.');
+        alert('Bitte Buchtitel und Autor*in ausfüllen.');
         return { ok:false };
       }
       return { ok:true, title, author, isbn };
-    }
-    // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-    function buildCSV(items, book){
+    }    function buildCSV(items, book){
       const escape = (s) => '"' + (String(s||'').replaceAll('"', '""')) + '"';
       const header = ['Text','Seite','Buchtitel','Autor','ISBN'];
       const rows = [header.join(',')];
@@ -634,57 +423,106 @@
       });
     }
 
-    function loadImageFromFile(file) {
-      return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
-        img.onerror = reject;
-        img.src = url;
+    async function dataUrlBytes(u){
+      const blob = await (await fetch(u)).blob();
+      return blob.size;
+    }
+
+    async function dataUrlToCanvas(dataUrl){
+      const img = await new Promise((res, rej) => {
+        const im = new Image();
+        im.onload = () => res(im);
+        im.onerror = rej;
+        im.src = dataUrl;
       });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      return canvas;
     }
 
-    function histogramStretchInPlace(gray, levels = 256, clip = 0.01) {
-      const hist = new Uint32Array(levels);
-      for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
-
-      const n = gray.length;
-      const clipCount = Math.floor(n * clip);
-      let lo = 0, hi = levels - 1;
-
-      for (let v = 0, s = 0; v < levels; v++) { s += hist[v]; if (s > clipCount) { lo = v; break; } }
-      for (let v = levels - 1, s = 0; v >= 0; v--) { s += hist[v]; if (s > clipCount) { hi = v; break; } }
-      if (hi <= lo) return;
-
-      const scale = 255 / (hi - lo);
-      for (let i = 0; i < gray.length; i++) {
-        let v = (gray[i] - lo) * scale;
-        gray[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+    function toGrayscaleInPlace(canvas){
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const { width:w, height:h } = canvas;
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const data = imgData.data;
+      for(let i = 0; i < data.length; i += 4){
+        const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        data[i] = data[i + 1] = data[i + 2] = y;
       }
+      ctx.putImageData(imgData, 0, 0);
     }
 
-    function otsuThreshold(gray, levels = 256) {
-      const hist = new Float64Array(levels);
-      const N = gray.length;
-      for (let i = 0; i < N; i++) hist[gray[i]]++;
-      for (let i = 0; i < levels; i++) hist[i] /= N;
+    function scaleCanvas(canvas, factor){
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(canvas.width * factor));
+      c.height = Math.max(1, Math.round(canvas.height * factor));
+      const ctx = c.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(canvas, 0, 0, c.width, c.height);
+      return c;
+    }
 
-      const P1 = new Float64Array(levels);
-      const m  = new Float64Array(levels);
-      P1[0] = hist[0]; m[0] = 0;
-      for (let t = 1; t < levels; t++) { P1[t] = P1[t - 1] + hist[t]; m[t] = m[t - 1] + t * hist[t]; }
+    async function ensureUnderLimit(dataUrl, {
+      maxBytes = 950 * 1024,
+      prefer = 'image/png',
+      grayscale = false,
+      startQuality = 0.85,
+      minQuality = 0.5,
+      maxSteps = 8
+    } = {}){
+      let canvas = await dataUrlToCanvas(dataUrl);
 
-      const mG = m[levels - 1];
-      let maxSigma = -1, thr = 0;
-      for (let t = 0; t < levels; t++) {
-        const w0 = P1[t], w1 = 1 - w0;
-        if (w0 === 0 || w1 === 0) continue;
-        const mu0 = m[t] / w0;
-        const mu1 = (mG - m[t]) / w1;
-        const sigmaB = w0 * w1 * (mu0 - mu1) * (mu0 - mu1);
-        if (sigmaB > maxSigma) { maxSigma = sigmaB; thr = t; }
+      if(prefer === 'image/png'){
+        const out = canvas.toDataURL('image/png');
+        if(await dataUrlBytes(out) <= maxBytes) return out;
       }
-      return thr;
+
+      if(grayscale) toGrayscaleInPlace(canvas);
+
+      for(let step = 0; step < maxSteps; step++){
+        let low = minQuality;
+        let high = startQuality;
+        let best = null;
+        for(let i = 0; i < 6; i++){
+          const q = (low + high) / 2;
+          const out = canvas.toDataURL('image/jpeg', q);
+          const size = await dataUrlBytes(out);
+          if(size <= maxBytes){
+            best = out;
+            low = q;
+          } else {
+            high = q;
+          }
+          if(Math.abs(high - low) < 0.03) break;
+        }
+        if(best) return best;
+        canvas = scaleCanvas(canvas, 0.85);
+      }
+
+      return canvas.toDataURL('image/jpeg', minQuality);
+    }
+
+    async function ocrSpaceFromDataUrl(dataUrl){
+      const form = new FormData();
+      form.append('apikey', OCRSPACE_API_KEY);
+      form.append('language', OCR_LANG);
+      form.append('isOverlayRequired', 'false');
+      form.append('OCREngine', '2');
+      form.append('scale', 'true');
+      form.append('detectOrientation', 'true');
+      form.append('base64Image', dataUrl);
+
+      const resp = await fetch(OCRSPACE_ENDPOINT, { method:'POST', body:form });
+      if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json();
+      if(json.IsErroredOnProcessing){
+        const msg = (json.ErrorMessage && json.ErrorMessage.join ? json.ErrorMessage.join('; ') : json.ErrorMessage) || 'Unbekannter OCR-Fehler';
+        throw new Error(msg);
+      }
+      const first = (json.ParsedResults && json.ParsedResults[0]) || {};
+      return (first.ParsedText || '').trim();
     }
 
     // iOS-Hinweis
